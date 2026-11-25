@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dragoon</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <section id="menu">
+    <h1>DRAGOON</h1>
+    <button id="btn-practice">Practice</button>
+    <button id="btn-create" disabled>Create Room</button>
+    <div class="row">
+      <input id="join-code" maxlength="6" placeholder="ROOM CODE" disabled>
+      <button id="btn-join" disabled>Join</button>
+    </div>
+    <button id="btn-settings">Settings</button>
+    <p class="hint">Rooms (multiplayer) arrive in Phase 3.</p>
+  </section>
+
+  <section id="settings" hidden>
+    <h2>Settings</h2>
+    <label>Name <input id="set-name" maxlength="12"></label>
+    <label>Dragon color <input id="set-color" type="color"></label>
+    <label class="check"><input id="set-glow" type="checkbox"> Glow effects</label>
+    <button id="btn-back">Back</button>
+  </section>
+
+  <section id="game" hidden>
+    <canvas id="canvas"></canvas>
+    <div id="hud"></div>
+    <button id="btn-leave">Leave</button>
+    <p id="controls">Arrows / WASD to turn. Collect the glowing orbs to grow.</p>
+    <div id="dead" hidden>
+      <h2>Your dragon fell</h2>
+      <p>Your body scattered into pickups.</p>
+      <button id="btn-respawn">Respawn</button>
+      <button id="btn-menu">Menu</button>
+    </div>
+  </section>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>

@@ -20,3 +20,50 @@ Open questions (blocking Phase 1):
 Assumed defaults (change anytime): 2 to 4 players per room, 6-character room code in a shareable link, last dragon alive wins.
 
 Next: wait for answers to Q1 to Q5 and a "go".
+
+## 2026-11-25: Session 2 (Phase 0, planning only)
+User answers: Q1 grid. Q2 hosting A (static Vercel + separate Node `ws` server). Q3 default, plus: when a dragon dies it scatters, and every part of the dragon has health. Q4 default, head collision = death like snake.io, user wants it "more fun" (twists parked for Phase 6). Q5 default (walls block movement and bullets).
+New requests: main screen and settings screen; asked whether players should log in.
+Decision: no login, guests with name/color in `localStorage` (recommended, user did not object).
+Changed: rewrote `docs/CHECKLIST.md` (screens in Phase 1, scatter/HP, statuses) and `docs/ARCHITECTURE.md` (screens, folder layout, HP state shape, CONFIRMED tags). No game code written.
+
+Open questions (defaults apply if the user says "go"):
+- QA: when a segment reaches 0 HP, does it cut the body (segments behind it scatter as pickups, front part lives), or is just that one segment removed? (default: cut; the rear part scatters)
+- QB: damage and HP numbers. (default: segment HP 3, head HP 5; bullet 1 dmg, bullet2 1 dmg but faster, missile 3 dmg; head HP 0 = death; shield absorbs 1 hit)
+
+Next: wait for "go", then Phase 1.
+
+## 2026-11-25: Session 3 (Phase 0, planning only)
+User answers: QA yes (cut the body, rear scatters). QB yes, but battles must be long and nothing overpowered.
+New requests: manual mouse aiming with camera panning toward the enemy; left click = basic attack; right click = skills; bullets per basic attack = number of Gun pickups; shield has its own HP and auto-deploys; missile is homing with modest damage; asked whether to change the guns; wants perks for combos and builds; wants right-click skills.
+Changed: created `docs/GAME_DESIGN.md` (controls, balance targets, retuned pickups, 4 skills, 2 status effects, 9 perks, 4 example builds). Rewrote `docs/CHECKLIST.md` (combat/skills/perks phases split, aim moved to Phase 5) and `docs/ARCHITECTURE.md` (20 Hz tick, camera, interpolation, aim/skill state and protocol). Added GAME_DESIGN.md to the read-first list in `AI_RULES.md`. No game code written.
+Pushback given: aim + skills + perks doubled the scope; perks/skills are built last (Phases 6 and 7) so the core fight is tuned first. Desktop only because mouse aim has no good phone equivalent.
+
+Open questions (defaults apply if the user says "go"):
+- QC: camera follows your head and the mouse only aims (you move with the keyboard)? Or did "camera panning" mean something else? (default: follows head, keyboard moves, mouse aims)
+- QD: accept the retuned pickups: Gun (+1 barrel, cap 5), Rapid (+fire rate) replacing the second bullet, Shield, Missile? (default: yes)
+- QE: perks and extra skills come from "choose 1 of 3" cards at pickup milestones? (default: yes)
+- QF: accept the balance numbers in GAME_DESIGN.md (head 150, segment 50, bullet 4 dmg, about 40 s 1v1 kill)? (default: yes, tuned in playtests)
+
+Next: wait for "go", then Phase 1.
+
+## 2026-11-25: Session 4 (Phase 1 built)
+User said "go" (QC to QF accepted as defaults).
+Created: `public/index.html`, `style.css`, `main.js`, `settings.js`, `input.js`, `render.js`, `public/shared/sim.js`.
+What works: menu (Practice; Create/Join Room disabled), settings (name max 12, color picker, glow, saved in `localStorage`), practice game on an 80x60 grid with a 32-cell-wide camera following the head, smooth interpolation between cells, arrows/WASD with no reversing, growth on pickup, HP on every part (not damaged yet), death on wall/body hit with all segments scattering as random-type pickups tinted with the dragon's color, Respawn/Menu panel, 25 pickups kept on the map. Pickup letters: G gun, R rapid, S shield, M missile (effects arrive in Phases 5 and 6; for now every pickup only grows you).
+Testing done: node unit tests of `sim.js` (move cadence, HP stays with segment, no reverse, border death + scatter, eating, self/other-body/head-on collisions, spawn avoids solids) and a jsdom run of the whole client with a mocked canvas (screens, settings persistence, game loop, death, respawn, leave). Test files were not added to the repo.
+NOT tested: real browser rendering. Nobody has looked at the canvas output yet, so visual problems (sizes, eyes, glow, camera feel) are possible.
+Decisions made without asking (small): added a Respawn/Menu panel on death; name capped at 12 chars; world 80x60, view 32 cells wide; pickups drawn as glowing circles with a type letter.
+Known limitations: spawn has no safe-distance check from other dragons (solo only, revisit in Phase 3); a pickup can land under a surviving head on a scatter move (harmless).
+Bugs found: none.
+
+Next: user playtests Phase 1 and reports anything off, then "go" for Phase 2 (deploy static client to Vercel).
+
+## 2026-11-25: Session 5 (suggestion, no code)
+User suggested slither.io-style movement and map. Logged as a PENDING DECISION in ARCHITECTURE.md and a PENDING block in CHECKLIST.md; no confirmed doc was rewritten yet, grid Phase 1 code is untouched.
+Open questions (defaults apply on "go"):
+- QG: mouse steers (head turns toward cursor, slower when longer), WASD removed, attack fires toward the cursor? (default: yes)
+- QH: no self-collision, only other dragons' bodies, walls and the border kill? (default: yes)
+- QI: no free boost in v1, Wing Boost stays a right-click skill? (default: yes)
+- QJ: keep the rectangular map with obstacle walls from the sketch, not a big circle arena? (default: yes)
+Next: wait for "go", then rewrite Phase 1 in slither style and re-test.

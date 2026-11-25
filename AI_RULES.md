@@ -5,6 +5,7 @@ Before writing or changing ANY code, read in this order:
 1. `docs/CHECKLIST.md`
 2. `docs/AI_ACTIVITY.md`
 3. `docs/ARCHITECTURE.md`
+4. `docs/GAME_DESIGN.md` (whenever the task touches gameplay, balance, perks, or skills)
 Work only on the current unchecked phase. When done, update all three (tick boxes, log the session, fix architecture if it changed). If docs and code disagree, tell the user before continuing.
 
 ## No reinventing the wheel
