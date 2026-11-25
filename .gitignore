@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+.vercel/
+
+# Secrets (use .env.example for variable NAMES only)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Packed repo dumps and zips
+*.zip
+repomix-output.*
+dragoon*.xml
