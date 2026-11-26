@@ -80,3 +80,13 @@ Known limitations: growth has no cap yet (scatter can create very long dragons);
 Bugs found: none.
 
 Next: user playtests Phase 1 (speed, turning, camera, glow) and reports tuning changes, then "go" for Phase 2 (deploy static client to Vercel).
+
+## 2026-11-25: Session 7 (Phase 1 fixes)
+User attached `dragoon_e551c1.xml`: a Repomix pack of the repo, identical to our files (no user edits).
+User feedback: dragon should be square, not circle; only the camera and the snake movement are copied from slither.io; steering should be WASD, not the mouse; add small no-name fragments that act as XP (level up: more health, more damage, body gradually bigger with how many were eaten). User asked for a zip of modified files only (overrides the usual full-project zip for this delivery).
+My reading: "its square and not circle" = the dragon should be square blocks like the sketch (we had circles). If you meant something else, say so.
+Changed: `public/shared/sim.js` (shards, levels, size scale, per-block max HP, size-scaled collisions and spacing, new constants, shards drop on death), `render.js` (squares drawn rotated along the chain, shards as small diamonds, orbs as square cards, camera zooms out with size), `input.js` (WASD/arrows, mouse removed), `main.js` (steering from keys, 30 orbs + 120 shards in practice, bigger HUD), `index.html` (texts), `style.css` (HUD line breaks, crosshair cursor removed), and docs (GAME_DESIGN, ARCHITECTURE, CHECKLIST, README, this log).
+Decisions made without asking: arrows also steer; 10 shards per level, +10% max HP per level, +8% damage per level, +1% size per shard, all capped at 100 shards (level 10, x2); level-up heals by the HP gained; shards do not add blocks (orbs do); practice orbs lowered from 60 to 30 because shards now supply growth; collision stays circles under the squares.
+Testing done (files not in repo): node tests for sim (all earlier cases updated, plus shards, level-up heal, cap, size effects, shard/orb scatter, typed vs shard spawn), input (WASD/arrows, diagonals, cancel, reset, blur, inactive), render (squares only, eyes are the only circles, zoom out at max size), and a jsdom run of the whole client (screens, settings, keys only prevented inside the game, death, respawn, leave).
+NOT tested: real browser rendering and feel. The damage bonus is only a number on the HUD until Phase 5 adds attacks.
+Next: user playtests, then "go" for Phase 2 (deploy static client to Vercel).

@@ -14,13 +14,15 @@ Legend: `[x]` done, `[ ]` todo. Do not start a phase without the user saying "go
 - [x] Main menu: title, Practice (solo), Create Room / Join Room (disabled until Phase 3), Settings
 - [x] Settings: name, color (`<input type="color">`), glow on/off, saved in `localStorage`. No login.
 - [x] `public/shared/sim.js`: pure `step(state, inputs)`, 20 ticks/s, free movement, chain body
-- [x] Mouse steering with limited turn rate (slower when longer), dead zone
-- [x] World 80x60, camera follows the head, smooth interpolation between ticks
-- [x] Pickup collection grows the dragon by 1 segment at the tail
+- [x] WASD / arrow steering with limited turn rate (slower when longer); no key = keep heading (replaced mouse steering)
+- [x] Dragons drawn as squares (sketch), not circles
+- [x] World 80x60, camera follows the head and zooms out as the dragon grows, smooth interpolation between ticks
+- [x] Orb pickup adds 1 block at the tail
+- [x] Shards: small no-name XP pickups; 10 shards = 1 level (+10% max HP per block, +8% damage stat); body grows 1% per shard (x2 at 100); also drop on death
 - [x] Every part has HP (constants in `sim.js`), not damaged yet
 - [x] Death on border/wall/other dragon's body; no self-collision
 - [x] On death all segments scatter as colored pickups (dragon's color)
-- [x] Practice mode keeps 60 pickups on the map
+- [x] Practice mode keeps 30 orbs and 120 shards on the map; HUD shows HP, level, shards, damage, size, length
 - [x] Respawn / Menu panel after death
 - [ ] User playtest in a real browser confirms it works and feels right (never seen in a real browser yet, see AI_ACTIVITY)
 Done when: menu, settings, solo play, death and scatter work locally and feel like slither.io.
@@ -43,8 +45,9 @@ Done when: two browsers on different devices play in the same room.
 - [ ] Draw walls (render already supports them)
 Done when: dragons and bullets collide with walls.
 
-### Phase 5: Basic attack + stat pickups (test with two browser tabs)
-- [ ] Left click hold = basic attack toward the cursor; bullets as circles, per-tick distance check
+### Phase 5: Aim + basic attack + stat pickups (test with two browser tabs)
+- [ ] Mouse aim (crosshair, cursor to world angle, sent as `aim`)
+- [ ] Left click hold = basic attack toward the cursor, damage x `damageMult(d)`; bullets as circles, per-tick distance check
 - [ ] Damage segments; cut rule (rear scatters); head HP 0 = death
 - [ ] Pickups: Gun (barrels, fan), Rapid; glow rendering respects the setting
 - [ ] Shield pickup: auto-deploy, shield HP absorbs first
@@ -76,8 +79,8 @@ Done when: a full match can be played start to finish.
 - Optional accounts/login + saved stats
 - "Hide in cover" wall tiles that hide dragons
 - Guns mounted on segments (lose a segment = lose its gun)
-- Orbs drift toward the head (magnet) like slither
-- Zoom out as the dragon grows
+- Shards drift toward the head (magnet) like slither
+- Level-up flash/sound
 - Spectator mode for dead players
 - Touch controls for phones (virtual joystick)
 - Sound effects via Web Audio + mute setting

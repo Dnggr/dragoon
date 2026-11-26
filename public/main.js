@@ -1,17 +1,18 @@
 // Boot, screen switching and the practice game loop.
-import { createState, addDragon, spawnPickup, step, TICK_MS, HEAD_HP } from './shared/sim.js';
+import { createState, addDragon, spawnPickup, step, scaleOf, damageMult, TICK_MS } from './shared/sim.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { createInput } from './input.js';
-import { draw, resize, toWorld } from './render.js';
+import { draw, resize } from './render.js';
 
 const ME = 'me';
-const PRACTICE_PICKUPS = 60;
+const PRACTICE_ORBS = 30;
+const PRACTICE_SHARDS = 120;
 const $ = (id) => document.getElementById(id);
 const screens = { menu: $('menu'), settings: $('settings'), game: $('game') };
 const canvas = $('canvas');
 const ctx = canvas.getContext('2d');
 const settings = loadSettings();
-const input = createInput();
+const input = createInput(() => !screens.game.hidden);
 
 let state, dead, last, acc, raf;
 
@@ -38,7 +39,7 @@ $('btn-back').addEventListener('click', () => show('menu'));
 // ---- practice game ----
 function spawnMe() {
   addDragon(state, ME, settings.name, settings.color);
-  input.reset();                 // go straight until the mouse moves
+  input.reset();                 // go straight until a key is pressed
   dead = false;
   $('dead').hidden = true;
 }
@@ -55,22 +56,16 @@ function startPractice() {
 }
 
 function leave() {
+  input.reset();
   cancelAnimationFrame(raf);
   show('menu');
 }
 
-// Angle from the head to the mouse in world space. undefined = keep the current heading.
-function steer() {
-  if (!input.moved) return undefined;
-  const head = state.dragons[ME].body[0];
-  const w = toWorld(input.mx, input.my);
-  const dx = w.x - head.x, dy = w.y - head.y;
-  return Math.hypot(dx, dy) < 0.4 ? undefined : Math.atan2(dy, dx);   // dead zone stops jitter
-}
-
 function tick() {
-  for (let i = PRACTICE_PICKUPS - state.pickups.length; i > 0; i--) spawnPickup(state);
-  step(state, { [ME]: { angle: steer() } });
+  const shards = state.pickups.filter((p) => p.type === 'frag').length;
+  for (let i = PRACTICE_SHARDS - shards; i > 0; i--) spawnPickup(state, 'frag');
+  for (let i = PRACTICE_ORBS - (state.pickups.length - shards); i > 0; i--) spawnPickup(state);
+  step(state, { [ME]: { angle: input.angle() } });
   if (!state.dragons[ME].alive) {
     dead = true;
     $('dead').hidden = false;
@@ -84,7 +79,9 @@ function frame(now) {
   if (dead) acc = 0;
   draw(ctx, canvas, state, ME, acc / TICK_MS, settings.glow);
   const me = state.dragons[ME];
-  $('hud').textContent = me.alive ? `HP ${me.body[0].hp}/${HEAD_HP}   Length ${me.body.length}` : 'Dead';
+  $('hud').textContent = me.alive
+    ? `HP ${me.body[0].hp}/${me.body[0].max}   Level ${me.level}   Shards ${me.frags}\nDamage x${damageMult(me).toFixed(2)}   Size x${scaleOf(me).toFixed(2)}   Length ${me.body.length}`
+    : 'Dead';
   raf = requestAnimationFrame(frame);
 }
 

@@ -29,10 +29,10 @@ dragoon/
     CHECKLIST.md  ARCHITECTURE.md  AI_ACTIVITY.md  GAME_DESIGN.md  sketch.png
   public/                 <- deployed to Vercel
     index.html  style.css  config.js (Phase 3)
-    main.js               <- boot, screen switching, game loop, mouse -> steering angle
+    main.js               <- boot, screen switching, game loop, HUD
     settings.js           <- localStorage (name, color, glow)
-    input.js              <- mouse position (clicks in Phases 5/6)
-    render.js             <- canvas, camera, interpolation, glow, toWorld()
+    input.js              <- WASD/arrows -> steering angle (mouse aim + clicks in Phases 5/6)
+    render.js             <- canvas, square dragons, camera + zoom, interpolation, glow
     net.js                <- WebSocket client (Phase 3)
     shared/
       sim.js              <- pure step(state, inputs), constants at top
@@ -42,20 +42,22 @@ dragoon/
 ```
 
 ## Responsibilities
-- `sim.js` (Phase 1 exports: createState, addDragon, spawnPickup, step, constants): movement, chain body, collisions, pickups, scatter. Later: HP/damage/cut, bullets, skills, cooldowns, status effects, card offers. No DOM, no network, no timers.
-- `render.js`: reads snapshots, draws, camera follows own head, slides segments between ticks, converts mouse pixels to world coordinates. Never mutates state.
-- `input.js`: mouse position. `main.js` converts it to an angle each tick.
+- `sim.js` (Phase 1 exports: createState, addDragon, spawnPickup, step, constants): movement, chain body, collisions, orbs, shards (xp, levels, size), scatter. Later: HP/damage/cut, bullets, skills, cooldowns, status effects, card offers. No DOM, no network, no timers.
+- `render.js`: reads snapshots, draws dragons as rotated squares, camera follows own head and zooms out with size, slides blocks between ticks. Never mutates state.
+- `input.js`: held WASD/arrow keys -> one steering angle (undefined = no key). `main.js` passes it to `step()` each tick.
 - `settings.js`: `localStorage` with defaults.
 - `server.js`: owns rooms and state, calls `step()` every tick, broadcasts snapshots.
 
 ## Simulation model (CONFIRMED: slither-style; numbers PROPOSED)
 - Fixed tick, 20/s. Positions are floats in world units. Dragons always move forward at SPEED; the head turns toward `target` at a limited turn rate (shorter = faster).
 - Body is a chain of circles: each segment is pulled toward the one in front, never farther than SPACING. No path history needed. A new segment appears at the tail.
-- Collision: circle distance checks, O(dragons x segments) per tick, fine for 2 to 4 players. Head vs another dragon's segment < KILL_DIST = death; head vs wall rect or border = death. No self-collision.
+- Collision: circle distance checks (radii scale with dragon size), O(dragons x blocks) per tick, fine for 2 to 4 players. Head vs another dragon's block < 0.82 x sum of radii = death; head vs wall rect or border = death. No self-collision.
+- Look: dragons, orbs and shards are drawn as squares (rotated along the chain), as in the sketch. Collision stays circles because they are simpler and fair.
+- Shards: `d.frags` counts eaten shards; `level = floor(frags/10)`; `scaleOf(d) = 1 + 0.01 * frags` (capped at 100). Level-up raises every block's max HP and heals by the gain.
 - Death of several dragons in one tick is decided before any scatter, so head-on hits kill both.
 - Rendering: each segment keeps `px,py` (position one tick ago); the client draws `p + (cur - p) * alpha`. In multiplayer the client will interpolate between snapshots instead (Phase 3).
 - World 80x60 units; camera shows 32 units across and follows the head, clamped to the map.
-- Mouse steering: client converts cursor pixels to a world point (`toWorld`), then to an angle from the head. Dead zone 0.4 units.
+- Steering: WASD/arrows -> screen-space angle (y points down) -> `target`. Mouse is reserved for aiming in Phase 5.
 
 ## State shape (CONFIRMED structure, PROPOSED numbers)
 ```js
@@ -65,7 +67,8 @@ state = {
   dragons: {                               // keyed by player id
     id: { name, color, alive,
           angle, target,                   // radians: current heading, wanted heading
-          body: [{ x, y, px, py, hp }],    // body[0] is the head; px/py = one tick ago
+          frags: 0, level: 0,              // shards eaten, level (10 shards each)
+          body: [{ x, y, px, py, hp, max }], // body[0] is the head; px/py = one tick ago
           guns: 1, rapid: 0, shield: 0,    // Phase 5+
           skills: ['missile'], sel: 0, cd: { missile: 0 },   // Phase 6+
           perks: {}, status: { burn: 0, slow: 0 },           // Phase 7+
@@ -75,12 +78,12 @@ state = {
   bullets: [{ x, y, vx, vy, owner, kind, ttl, target }]      // Phase 5+
 }
 ```
-Phase 1 dragons only have name, color, alive, angle, target, body.
+Phase 1 dragons have name, color, alive, angle, target, frags, level, body. Pickup type `'frag'` is a shard; the other four types are orbs.
 
 ## Network protocol (JSON over WebSocket, PROPOSED)
 Client -> server:
 - `{t:'join', room, name, color}`
-- `{t:'input', angle, fire}` about 20/s (angle = world-space radians toward the cursor)
+- `{t:'input', angle, aim, fire}` about 20/s (angle = steering from WASD, aim = world-space radians toward the cursor, Phase 5)
 - `{t:'cast'}` right click, `{t:'select', i}` wheel/Q, `{t:'card', i}` pick card
 Server -> client:
 - `{t:'joined', id, room}`
@@ -93,13 +96,15 @@ No client-side prediction in v1 (ponytail). Interpolation only. Input is applied
 Vercel Functions support WebSockets (GA Oct 2026), but a connection ends at the function max duration (default 5 min) and connections can land on different instances. A tick loop needs one long-lived process holding room state, so the server runs on an always-on host (Render, Fly.io or Railway). Vercel serves only the static client.
 
 ## Browser-native features used
-Canvas 2D, `requestAnimationFrame`, `mousemove`/`mousedown`/`mouseup`/`wheel`/`contextmenu`, `<input type="color">`, `localStorage`, `hidden` attribute, `shadowBlur` (glow), `WebSocket`, `URLSearchParams`, `crypto.randomUUID`, `structuredClone`.
+Canvas 2D (`translate`/`rotate` for squares), `requestAnimationFrame`, `keydown`/`keyup`/`blur`, later `mousemove`/`mousedown`/`mouseup`/`wheel`/`contextmenu`, `<input type="color">`, `localStorage`, `hidden` attribute, `shadowBlur` (glow), `WebSocket`, `URLSearchParams`, `crypto.randomUUID`, `structuredClone`.
 
 ## Key decisions
 | Decision | Why | Status |
 |---|---|---|
 | Plain JS + Canvas, no framework | Game is one canvas | CONFIRMED |
-| Slither-style free movement, mouse steering (replaced the grid) | User request, fits aiming and scatter | CONFIRMED |
+| Slither-style free movement and camera only, steered with WASD (replaced the grid and mouse steering) | User request; keeps the mouse free for aiming | CONFIRMED |
+| Square dragons, not circles | Sketch; only camera and movement are copied from slither | CONFIRMED |
+| Shards = XP (level, HP, damage, size) | User request | CONFIRMED (numbers PROPOSED) |
 | No self-collision | Tight turns would constantly kill you | CONFIRMED |
 | No free boost, Wing Boost is a skill | Avoid scope; right click is for skills | CONFIRMED |
 | Rectangular map with rect walls (from sketch) | User sketch | CONFIRMED |
