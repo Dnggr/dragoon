@@ -2,16 +2,16 @@
 import { createState, addDragon, spawnPickup, step, TICK_MS, HEAD_HP } from './shared/sim.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { createInput } from './input.js';
-import { draw, resize } from './render.js';
+import { draw, resize, toWorld } from './render.js';
 
 const ME = 'me';
-const PRACTICE_PICKUPS = 25;
+const PRACTICE_PICKUPS = 60;
 const $ = (id) => document.getElementById(id);
 const screens = { menu: $('menu'), settings: $('settings'), game: $('game') };
 const canvas = $('canvas');
 const ctx = canvas.getContext('2d');
 const settings = loadSettings();
-const input = createInput(() => !screens.game.hidden);
+const input = createInput();
 
 let state, dead, last, acc, raf;
 
@@ -38,7 +38,7 @@ $('btn-back').addEventListener('click', () => show('menu'));
 // ---- practice game ----
 function spawnMe() {
   addDragon(state, ME, settings.name, settings.color);
-  input.reset();
+  input.reset();                 // go straight until the mouse moves
   dead = false;
   $('dead').hidden = true;
 }
@@ -59,9 +59,18 @@ function leave() {
   show('menu');
 }
 
+// Angle from the head to the mouse in world space. undefined = keep the current heading.
+function steer() {
+  if (!input.moved) return undefined;
+  const head = state.dragons[ME].body[0];
+  const w = toWorld(input.mx, input.my);
+  const dx = w.x - head.x, dy = w.y - head.y;
+  return Math.hypot(dx, dy) < 0.4 ? undefined : Math.atan2(dy, dx);   // dead zone stops jitter
+}
+
 function tick() {
   for (let i = PRACTICE_PICKUPS - state.pickups.length; i > 0; i--) spawnPickup(state);
-  step(state, { [ME]: { dir: input.dir } });
+  step(state, { [ME]: { angle: steer() } });
   if (!state.dragons[ME].alive) {
     dead = true;
     $('dead').hidden = false;

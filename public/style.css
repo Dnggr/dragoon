@@ -18,7 +18,7 @@ label { display: flex; align-items: center; gap: 12px; }
 input[type="color"] { width: 56px; height: 38px; padding: 2px; background: var(--panel); border: 1px solid #2b3345; border-radius: 8px; }
 
 #game { position: fixed; inset: 0; }
-canvas { display: block; width: 100%; height: 100%; }
+canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
 #hud { position: absolute; top: 12px; left: 12px; padding: 8px 12px; background: rgba(0,0,0,0.5); border-radius: 8px; font-variant-numeric: tabular-nums; }
 #btn-leave { position: absolute; top: 12px; right: 12px; min-width: 0; padding: 8px 14px; }
 #controls { position: absolute; bottom: 12px; left: 12px; margin: 0; color: var(--muted); font-size: 14px; }

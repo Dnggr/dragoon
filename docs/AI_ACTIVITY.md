@@ -67,3 +67,16 @@ Open questions (defaults apply on "go"):
 - QI: no free boost in v1, Wing Boost stays a right-click skill? (default: yes)
 - QJ: keep the rectangular map with obstacle walls from the sketch, not a big circle arena? (default: yes)
 Next: wait for "go", then rewrite Phase 1 in slither style and re-test.
+
+## 2026-11-25: Session 6 (Phase 1 rewritten, slither style)
+User said "go" on the slither-style pivot (QG to QJ accepted as defaults): mouse steers, no self-collision, no free boost, rectangular map.
+Rewrote: `public/shared/sim.js` (float positions, heading + limited turn rate, chain-follow body, circle collisions, rect walls + border, scatter, pickup growth, safe-distance spawn), `render.js` (circles, eyes, camera, `toWorld`), `input.js` (mouse only), `main.js` (mouse -> world angle -> steer, dead zone, 60 practice pickups). Small edits to `index.html` (controls text, mouse hint) and `style.css` (crosshair cursor). Reused unchanged: `settings.js`, screens, game loop shape.
+Docs: rewrote GAME_DESIGN.md, ARCHITECTURE.md, CHECKLIST.md, README.md (grid and pending sections replaced). The old grid-based Phase 1 is gone.
+Constants (PROPOSED): speed 6 u/s, turn 4.5 rad/s - 0.04 per segment (floor 1.5), spacing 0.7, head r 0.6, segment r 0.5, kill distance 0.9, start length 5, map 80x60.
+Testing done (files not in repo): node unit tests for sim (forward speed, chain spacing, hp stays with segment, turn limit + shortest direction + length slowdown + bad inputs ignored, border/wall death + scatter, passing beside a wall, eating, hitting another body, head-on kills both, no self-collision, 1.0 gap safe / 0.8 gap deadly, pickups avoid walls); render tests (camera center, 40 px/unit, interpolation, edge clamp, dead dragon draws); jsdom run of the whole client with a mocked canvas (screens, settings saved, game loop, death, respawn, leave).
+NOT tested: real browser rendering and the feel of steering (turn rate, speed, camera). Nobody has looked at the canvas output yet.
+Note: if the mouse stays at screen center the dragon keeps steering toward the center and circles. That is normal slither behavior, not a bug.
+Known limitations: growth has no cap yet (scatter can create very long dragons); pickups can be collected the instant a dead dragon scatters next to a survivor; touch devices have no steering.
+Bugs found: none.
+
+Next: user playtests Phase 1 (speed, turning, camera, glow) and reports tuning changes, then "go" for Phase 2 (deploy static client to Vercel).

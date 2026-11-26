@@ -5,35 +5,25 @@ Legend: `[x]` done, `[ ]` todo. Do not start a phase without the user saying "go
 ## Phases
 
 ### Phase 0: Plan (done)
-- [x] `.gitignore`, `README.md`, `AI_RULES.md`
-- [x] `docs/CHECKLIST.md`, `docs/ARCHITECTURE.md`, `docs/AI_ACTIVITY.md`, `docs/GAME_DESIGN.md`
-- [x] Sketch saved to `docs/sketch.png`
-- [x] Q1 to Q5 answered; QA = cut the body, QB = yes but long battles
-- [x] Design extended: mouse aim + camera, left click attack, right click skills, perks/cards
-- [x] User said "go" (QC to QF accepted as defaults)
-Done when: the user says "go".
+- [x] `.gitignore`, `README.md`, `AI_RULES.md`, all docs, sketch saved
+- [x] Q1 to Q5, QA to QF answered; user said "go"
+- [x] Slither-style pivot approved (QG to QJ accepted as defaults)
 
 ### Phase 1: Single-player dragon + screens, no network (current, built, awaiting playtest)
 - [x] `public/index.html`: three `<section>` screens (menu, settings, game), `hidden` attribute, no router
 - [x] Main menu: title, Practice (solo), Create Room / Join Room (disabled until Phase 3), Settings
 - [x] Settings: name, color (`<input type="color">`), glow on/off, saved in `localStorage`. No login.
-- [x] `public/shared/sim.js`: pure `step(state, inputs)`, 20 ticks/s, dragon moves 1 cell per 3 ticks
-- [x] World larger than the screen; camera follows the head; smooth render between ticks
-- [x] Keyboard turning (arrows/WASD), no 180-degree reversal
-- [x] Body follows head; grows when collecting a pickup
-- [x] Every part has HP (constants in `sim.js`)
-- [x] Death on wall/body hit; all segments scatter as pickups tinted with the dragon's color
-- [x] Practice mode spawns pickups so growth and scatter can be tested
-- [ ] User playtest in a real browser confirms it works and feels right (not yet seen in a real browser, see AI_ACTIVITY)
-Done when: menu, settings, solo play, death and scatter work locally.
-
-### PENDING: Slither-style rework of Phase 1 (only if the user says "go")
-- [ ] `sim.js`: float positions, heading angle, turn rate toward target angle, chain-follow body, circle collisions, no self-collision
-- [ ] `input.js`: mouse position -> target angle (keys removed)
-- [ ] `render.js`: draw circles, camera follows head, no cell interpolation
-- [ ] Pickups: orbs collected within a radius of the head; scatter along the body on death
-- [ ] Update GAME_DESIGN.md and ARCHITECTURE.md (grid sections replaced), re-run tests
-Done when: Practice feels like slither.io: mouse steers, smooth body, orbs, border/wall death.
+- [x] `public/shared/sim.js`: pure `step(state, inputs)`, 20 ticks/s, free movement, chain body
+- [x] Mouse steering with limited turn rate (slower when longer), dead zone
+- [x] World 80x60, camera follows the head, smooth interpolation between ticks
+- [x] Pickup collection grows the dragon by 1 segment at the tail
+- [x] Every part has HP (constants in `sim.js`), not damaged yet
+- [x] Death on border/wall/other dragon's body; no self-collision
+- [x] On death all segments scatter as colored pickups (dragon's color)
+- [x] Practice mode keeps 60 pickups on the map
+- [x] Respawn / Menu panel after death
+- [ ] User playtest in a real browser confirms it works and feels right (never seen in a real browser yet, see AI_ACTIVITY)
+Done when: menu, settings, solo play, death and scatter work locally and feel like slither.io.
 
 ### Phase 2: Deploy static client to Vercel
 - [ ] Push to GitHub, import in Vercel (Framework: Other, Output Directory `public`)
@@ -43,18 +33,18 @@ Done when: the public URL runs Phase 1.
 - [ ] `server/server.js` with `ws`: rooms by code, join/leave, 20 Hz tick loop
 - [ ] Menu: Create Room (6-char code + shareable link), Join Room
 - [ ] Lobby: player list, host starts the match
-- [ ] Server sends snapshots; client interpolates and renders them
-- [ ] Deploy the server (Render/Fly/Railway), URL in `public/config.js`
+- [ ] Server sends snapshots (numbers rounded to 2 decimals, length capped); client interpolates between snapshots
+- [ ] Measure snapshot size and decide if a lighter format is needed
+- [ ] Deploy the server (Render/Fly/Railway, region near players), URL in `public/config.js`
 Done when: two browsers on different devices play in the same room.
 
 ### Phase 4: Map and walls
-- [ ] Wall layout in shared state; walls block movement and bullets
-- [ ] Draw walls
+- [ ] Wall rectangles in shared state; kill on touch, block bullets
+- [ ] Draw walls (render already supports them)
 Done when: dragons and bullets collide with walls.
 
-### Phase 5: Aim + basic attack + stat pickups (test with two browser tabs)
-- [ ] Mouse aim (crosshair), cursor to world angle, sent with input
-- [ ] Left click hold = basic attack; bullets as float positions, cell lookup per tick
+### Phase 5: Basic attack + stat pickups (test with two browser tabs)
+- [ ] Left click hold = basic attack toward the cursor; bullets as circles, per-tick distance check
 - [ ] Damage segments; cut rule (rear scatters); head HP 0 = death
 - [ ] Pickups: Gun (barrels, fan), Rapid; glow rendering respects the setting
 - [ ] Shield pickup: auto-deploy, shield HP absorbs first
@@ -86,8 +76,10 @@ Done when: a full match can be played start to finish.
 - Optional accounts/login + saved stats
 - "Hide in cover" wall tiles that hide dragons
 - Guns mounted on segments (lose a segment = lose its gun)
+- Orbs drift toward the head (magnet) like slither
+- Zoom out as the dragon grows
 - Spectator mode for dead players
-- Touch controls for phones
+- Touch controls for phones (virtual joystick)
 - Sound effects via Web Audio + mute setting
 - Rebindable keys in Settings
 - Bots / training dummy for solo combat testing

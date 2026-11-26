@@ -1,10 +1,11 @@
 // Draws a state snapshot. Never changes the state.
-import { MOVE_EVERY } from './shared/sim.js';
+import { HEAD_R, SEG_R, PICKUP_R } from './shared/sim.js';
 
-const VIEW_W = 32;                 // cells visible across the screen
+const VIEW_W = 32;                 // world units visible across the screen
 const LETTER = { gun: 'G', rapid: 'R', shield: 'S', missile: 'M' };
-const FORWARD = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
-let cam = { x: 40, y: 30 };        // last camera center in cells (kept when the dragon is dead)
+const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+let cam = { x: 40, y: 30 };        // last camera center (kept when the dragon is dead)
+let view = { camX: 0, camY: 0, size: 40 };
 
 export function resize(canvas) {
   const dpr = window.devicePixelRatio || 1;
@@ -12,26 +13,26 @@ export function resize(canvas) {
   canvas.height = canvas.clientHeight * dpr;
 }
 
-// alpha = how far we are into the current tick (0..1)
+// Screen pixel -> world position, using the camera of the last draw().
+export function toWorld(px, py) {
+  return { x: view.camX + px / view.size, y: view.camY + py / view.size };
+}
+
+// alpha = how far we are into the current tick (0..1), used to slide between ticks.
 export function draw(ctx, canvas, state, meId, alpha, glow) {
   const W = canvas.clientWidth, H = canvas.clientHeight;
   if (!W || !H) return;
   const dpr = canvas.width / W;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  // Dragons move in grid steps; p slides them between cells so it looks smooth.
-  const p = ((state.tick % MOVE_EVERY) + alpha) / MOVE_EVERY;
-  const pos = (seg) => ({ x: seg.px + (seg.x - seg.px) * p, y: seg.py + (seg.y - seg.py) * p });
-
+  const pos = (seg) => ({ x: seg.px + (seg.x - seg.px) * alpha, y: seg.py + (seg.y - seg.py) * alpha });
   const size = W / VIEW_W;
   const viewH = H / size;
   const me = state.dragons[meId];
-  if (me?.alive) {
-    const h = pos(me.body[0]);
-    cam = { x: h.x + 0.5, y: h.y + 0.5 };
-  }
-  const camX = Math.min(Math.max(cam.x - VIEW_W / 2, 0), Math.max(0, state.w - VIEW_W));
-  const camY = Math.min(Math.max(cam.y - viewH / 2, 0), Math.max(0, state.h - viewH));
+  if (me?.alive) cam = pos(me.body[0]);
+  const camX = clamp(cam.x - VIEW_W / 2, 0, Math.max(0, state.w - VIEW_W));
+  const camY = clamp(cam.y - viewH / 2, 0, Math.max(0, state.h - viewH));
+  view = { camX, camY, size };
   const sx = (x) => (x - camX) * size;
   const sy = (y) => (y - camY) * size;
 
@@ -40,13 +41,13 @@ export function draw(ctx, canvas, state, meId, alpha, glow) {
   ctx.fillStyle = '#10131a';
   ctx.fillRect(sx(0), sy(0), state.w * size, state.h * size);
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';   // faint grid so movement is visible
   ctx.lineWidth = 1;
   ctx.beginPath();
-  for (let x = Math.max(0, Math.floor(camX)); x <= Math.min(state.w, Math.ceil(camX + VIEW_W)); x++) {
+  for (let x = Math.max(0, Math.ceil(camX / 2) * 2); x <= Math.min(state.w, camX + VIEW_W); x += 2) {
     ctx.moveTo(sx(x), sy(0)); ctx.lineTo(sx(x), sy(state.h));
   }
-  for (let y = Math.max(0, Math.floor(camY)); y <= Math.min(state.h, Math.ceil(camY + viewH)); y++) {
+  for (let y = Math.max(0, Math.ceil(camY / 2) * 2); y <= Math.min(state.h, camY + viewH); y += 2) {
     ctx.moveTo(sx(0), sy(y)); ctx.lineTo(sx(state.w), sy(y));
   }
   ctx.stroke();
@@ -55,18 +56,18 @@ export function draw(ctx, canvas, state, meId, alpha, glow) {
   ctx.strokeRect(sx(0), sy(0), state.w * size, state.h * size);
 
   ctx.fillStyle = '#4a5160';
-  for (const [x, y] of state.walls) ctx.fillRect(sx(x), sy(y), size, size);
+  for (const w of state.walls) ctx.fillRect(sx(w.x), sy(w.y), w.w * size, w.h * size);
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   for (const pk of state.pickups) {
-    const cx = sx(pk.x) + size / 2, cy = sy(pk.y) + size / 2;
+    const cx = sx(pk.x), cy = sy(pk.y);
     if (cx < -size || cy < -size || cx > W + size || cy > H + size) continue;
     ctx.shadowBlur = glow ? size * 0.8 : 0;
     ctx.shadowColor = pk.color;
     ctx.fillStyle = pk.color;
     ctx.beginPath();
-    ctx.arc(cx, cy, size * 0.3, 0, Math.PI * 2);
+    ctx.arc(cx, cy, PICKUP_R * size, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
     ctx.fillStyle = '#000';
@@ -74,28 +75,35 @@ export function draw(ctx, canvas, state, meId, alpha, glow) {
     ctx.fillText(LETTER[pk.type], cx, cy + 1);
   }
 
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
   for (const d of Object.values(state.dragons)) {
     for (let i = d.body.length - 1; i >= 0; i--) {   // tail first so the head ends up on top
       const { x, y } = pos(d.body[i]);
-      const inset = i === 0 ? size * 0.04 : size * 0.1;
       ctx.shadowBlur = glow && i === 0 ? size * 0.7 : 0;
       ctx.shadowColor = d.color;
       ctx.fillStyle = d.color;
-      ctx.fillRect(sx(x) + inset, sy(y) + inset, size - 2 * inset, size - 2 * inset);
+      ctx.beginPath();
+      ctx.arc(sx(x), sy(y), (i === 0 ? HEAD_R : SEG_R) * size, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
     }
     ctx.shadowBlur = 0;
     if (!d.body.length) continue;
 
     const head = pos(d.body[0]);
-    const hx = sx(head.x) + size / 2, hy = sy(head.y) + size / 2;
-    const [fx, fy] = FORWARD[d.dir];
-    ctx.fillStyle = '#fff';
-    for (const side of [-1, 1]) {                    // two eyes, front of the head
-      ctx.beginPath();
-      ctx.arc(hx + fx * size * 0.2 - fy * side * size * 0.18, hy + fy * size * 0.2 + fx * side * size * 0.18, size * 0.07, 0, Math.PI * 2);
-      ctx.fill();
+    const hx = sx(head.x), hy = sy(head.y);
+    const fx = Math.cos(d.angle), fy = Math.sin(d.angle);
+    for (const side of [-1, 1]) {                    // two eyes at the front of the head
+      const ex = hx + fx * size * 0.25 - fy * side * size * 0.28;
+      const ey = hy + fy * size * 0.25 + fx * side * size * 0.28;
+      ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(ex, ey, size * 0.15, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.beginPath(); ctx.arc(ex + fx * size * 0.05, ey + fy * size * 0.05, size * 0.07, 0, Math.PI * 2); ctx.fill();
     }
+    ctx.fillStyle = '#fff';
     ctx.font = `${Math.max(11, size * 0.35)}px sans-serif`;
-    ctx.fillText(d.name, hx, hy - size * 0.8);
+    ctx.fillText(d.name, hx, hy - size * 0.95);
   }
 }

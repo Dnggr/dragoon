@@ -1,8 +1,8 @@
 # Dragoon
 
-Browser multiplayer game. Each player is a dragon: a head followed by a chain of square body segments, snake-style. Pick any color, grab glowing pickups (bullet, bullet, shield, missile), and survive on a map full of walls.
+Browser multiplayer game, slither.io style. Each player is a dragon: a head followed by a chain of body segments. Steer with the mouse, pick any color, grab glowing pickups (gun, rapid, shield, missile), and survive on a map with walls.
 
-Status: **Phase 1 built** (solo practice: menu, settings, dragon, growth, death + scatter). Multiplayer and combat come next. See `docs/CHECKLIST.md`.
+Status: **Phase 1 built** (solo practice: menu, settings, slither-style dragon, growth, death + scatter). Multiplayer and combat come next. See `docs/CHECKLIST.md`.
 
 No login: players are guests. Name, color and settings are saved in the browser (`localStorage`).
 
@@ -28,7 +28,7 @@ npx serve public
 # or
 python3 -m http.server 8000 --directory public
 ```
-Server (Phase 3 onward):
+Then open http://localhost:8000. Server (Phase 3 onward):
 ```bash
 npm install
 npm start
@@ -42,4 +42,4 @@ npm start
 5. The multiplayer server is hosted outside Vercel (Phase 3). Set its URL in `public/config.js` (not a secret, it is public).
 
 ## Controls
-Works now: arrows/WASD turn, collect orbs to grow, hit a wall or any body and you die and scatter. Planned (desktop only): mouse aims, left click attacks, right click casts a skill, wheel/Q cycles skills, 1/2/3 picks a card. Details in `docs/GAME_DESIGN.md`.
+Desktop with a mouse. Works now: move the mouse to steer, collect orbs to grow, touching a wall, the border or another dragon kills you and your body scatters. Planned: left click attacks, right click casts a skill, wheel/Q cycles skills, 1/2/3 picks a card. Details in `docs/GAME_DESIGN.md`.
