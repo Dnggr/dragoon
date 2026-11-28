@@ -57,8 +57,8 @@ function hitsWall(s, x, y, r) {
     dist(x, y, Math.min(Math.max(x, w.x), w.x + w.w), Math.min(Math.max(y, w.y), w.y + w.h)) < r);
 }
 
-export function createState(w = 80, h = 60) {
-  return { tick: 0, w, h, walls: [], dragons: {}, pickups: [], bullets: [] };
+export function createState(w = 80, h = 60, walls = []) {
+  return { tick: 0, w, h, walls, dragons: {}, pickups: [], bullets: [] };
 }
 
 // body[0] is the head. px/py = position one tick ago, used by the renderer to interpolate.
@@ -73,6 +73,8 @@ export function addDragon(s, id, name, color) {
       return { x: bx, y: by, px: bx, py: by, hp, max: hp };
     });
     if (body.some((seg) => hitsWall(s, seg.x, seg.y, HEAD_R + 1))) continue;
+    // open ground ahead too: every 3 units up to 15 in front of the head (about 2.5 s of flying)
+    if ([3, 6, 9, 12, 15].some((k) => hitsWall(s, x + Math.cos(angle) * k, y + Math.sin(angle) * k, HEAD_R + 1))) continue;
     const crowded = Object.values(s.dragons).some((o) =>
       o.alive && o.body.some((seg) => dist(x, y, seg.x, seg.y) < SAFE_SPAWN));
     if (crowded) continue;

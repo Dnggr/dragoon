@@ -1,12 +1,14 @@
 // Boot, screen switching and the practice game loop.
 import { createState, addDragon, spawnPickup, step, scaleOf, damageMult, TICK_MS } from './shared/sim.js';
+import { MAP } from './shared/map.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { createInput } from './input.js';
 import { draw, resize } from './render.js';
 
 const ME = 'me';
-const PRACTICE_ORBS = 30;
-const PRACTICE_SHARDS = 120;
+// Same pickup density as the old 80 x 60 map (30 orbs and 120 shards there), scaled to the map area.
+const PRACTICE_ORBS = Math.round(MAP.w * MAP.h / 160);
+const PRACTICE_SHARDS = Math.round(MAP.w * MAP.h / 40);
 const $ = (id) => document.getElementById(id);
 const screens = { menu: $('menu'), settings: $('settings'), game: $('game') };
 const canvas = $('canvas');
@@ -45,7 +47,7 @@ function spawnMe() {
 }
 
 function startPractice() {
-  state = createState();
+  state = createState(MAP.w, MAP.h, MAP.walls);
   show('game');
   resize(canvas);
   spawnMe();

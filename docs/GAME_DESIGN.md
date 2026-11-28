@@ -42,8 +42,9 @@ Camera follows your head and zooms out as the dragon grows (slither-style).
 | Kill distance (head to another dragon's block) | 0.82 x sum of radii = 0.74 at size 1 (a bit under touching, forgiving) |
 | Pickup collect range | 0.8 x dragon size |
 | Start length | 5 segments |
-| Map | 80 x 60 units, rectangle (sketch), border kills |
-| Walls | rectangles `{x, y, w, h}`, kill on touch, block bullets (Phase 4) |
+| Map | 200 x 150 units (6.25x the old 80 x 60), rectangle (sketch), border kills. Data in `public/shared/map.js` |
+| Walls | rectangles `{x, y, w, h}`, kill on touch (built), block bullets (Phase 5, when bullets exist). 50 walls, 8.7% of the area, at least 5 units between walls so a size x2 dragon fits |
+| Spawn | random spot, at least 6 from other dragons, clear of walls, and 15 units of open ground straight ahead (about 2.5 s) |
 
 Body = chain: each block follows the one in front and is never farther than the spacing (spacing grows with size). Blocks are drawn as squares turned toward the block in front; collisions use the circles above.
 

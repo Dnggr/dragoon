@@ -29,6 +29,7 @@ dragoon/
     CHECKLIST.md  ARCHITECTURE.md  AI_ACTIVITY.md  GAME_DESIGN.md  sketch.png
   public/                 <- deployed to Vercel
     index.html  style.css  config.js (Phase 3)
+    assets/               <- icons/*.svg (game-icons.net, CC BY 3.0) + CREDITS.md
     main.js               <- boot, screen switching, game loop, HUD
     settings.js           <- localStorage (name, color, glow)
     input.js              <- WASD/arrows -> steering angle (mouse aim + clicks in Phases 5/6)
@@ -36,6 +37,7 @@ dragoon/
     net.js                <- WebSocket client (Phase 3)
     shared/
       sim.js              <- pure step(state, inputs), constants at top
+      map.js              <- map data: size, wall rects, floor zones, emblem (no logic)
   server/                 <- Phase 3
     server.js             <- ws server, rooms, tick loop (imports ../public/shared/sim.js)
   package.json            <- added in Phase 3, not before
@@ -56,7 +58,8 @@ dragoon/
 - Shards: `d.frags` counts eaten shards; `level = floor(frags/10)`; `scaleOf(d) = 1 + 0.01 * frags` (capped at 100). Level-up raises every block's max HP and heals by the gain.
 - Death of several dragons in one tick is decided before any scatter, so head-on hits kill both.
 - Rendering: each segment keeps `px,py` (position one tick ago); the client draws `p + (cur - p) * alpha`. In multiplayer the client will interpolate between snapshots instead (Phase 3).
-- World 80x60 units; camera shows 32 units across and follows the head, clamped to the map.
+- World 200x150 units (`shared/map.js`; `createState(w, h, walls)` defaults to 80x60 with no walls). Camera shows 32 units across and follows the head, clamped to the map.
+- Depth rendering (`render.js`): the floor (cloud blotches + `ZONES` color pools) is painted once into an offscreen canvas at 4 px/unit and only the visible part is drawn; walls draw all shadows first, then block + front lip; orbs and dragons get offset drop shadows; embers are drawn in screen space with a parallax factor above 1; icons are rasterized once from SVG into small canvases and fall back to the letter if they fail to load. Collision is unchanged: the wall rectangle is exactly the lit top face.
 - Steering: WASD/arrows -> screen-space angle (y points down) -> `target`. Mouse is reserved for aiming in Phase 5.
 
 ## State shape (CONFIRMED structure, PROPOSED numbers)
@@ -107,7 +110,9 @@ Canvas 2D (`translate`/`rotate` for squares), `requestAnimationFrame`, `keydown`
 | Shards = XP (level, HP, damage, size) | User request | CONFIRMED (numbers PROPOSED) |
 | No self-collision | Tight turns would constantly kill you | CONFIRMED |
 | No free boost, Wing Boost is a skill | Avoid scope; right click is for skills | CONFIRMED |
-| Rectangular map with rect walls (from sketch) | User sketch | CONFIRMED |
+| Rectangular map with rect walls (from sketch), 200x150, 4-way symmetric | User sketch; user asked for a big map | CONFIRMED (layout PROPOSED) |
+| Map data in `shared/map.js`, visuals (zones, emblem) beside it | Server will import the same file in Phase 3 | PROPOSED |
+| Spawn needs 15 units of open ground ahead | Walls made instant deaths possible | PROPOSED |
 | Server-authoritative, separate host (A) | One source of truth, long-lived tick loop | CONFIRMED |
 | No login, guests + localStorage | Nothing worth saving yet | CONFIRMED |
 | Cut-the-body rule, HP on every part | User request | CONFIRMED |

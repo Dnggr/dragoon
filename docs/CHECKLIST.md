@@ -16,16 +16,25 @@ Legend: `[x]` done, `[ ]` todo. Do not start a phase without the user saying "go
 - [x] `public/shared/sim.js`: pure `step(state, inputs)`, 20 ticks/s, free movement, chain body
 - [x] WASD / arrow steering with limited turn rate (slower when longer); no key = keep heading (replaced mouse steering)
 - [x] Dragons drawn as squares (sketch), not circles
-- [x] World 80x60, camera follows the head and zooms out as the dragon grows, smooth interpolation between ticks
+- [x] World 200x150 (was 80x60, see Map pass below), camera follows the head and zooms out as the dragon grows, smooth interpolation between ticks
 - [x] Orb pickup adds 1 block at the tail
 - [x] Shards: small no-name XP pickups; 10 shards = 1 level (+10% max HP per block, +8% damage stat); body grows 1% per shard (x2 at 100); also drop on death
 - [x] Every part has HP (constants in `sim.js`), not damaged yet
 - [x] Death on border/wall/other dragon's body; no self-collision
 - [x] On death all segments scatter as colored pickups (dragon's color)
-- [x] Practice mode keeps 30 orbs and 120 shards on the map; HUD shows HP, level, shards, damage, size, length
+- [x] Practice mode keeps 187 orbs and 750 shards on the map (same density as before, scaled to the area); HUD shows HP, level, shards, damage, size, length
 - [x] Respawn / Menu panel after death
 - [ ] User playtest in a real browser confirms it works and feels right (never seen in a real browser yet, see AI_ACTIVITY)
 Done when: menu, settings, solo play, death and scatter work locally and feel like slither.io.
+
+### Map pass (user request, done before Phase 2, awaiting playtest)
+- [x] Big map: 200x150, 4-way symmetric, 50 walls (central fortress with 4 gates + inner pillars, corner L-keeps, lane ridges, pillar lattice), data in `public/shared/map.js`
+- [x] Depth: tinted floor pools, raised walls (front lip + cast shadow), drop shadows under dragons and orbs, floating orbs, 2 ember layers (parallax), vignette, red border haze
+- [x] Icons on orbs (game-icons.net, CC BY 3.0, credited in `public/assets/CREDITS.md` and on the menu); dragon-head emblem on the fortress floor
+- [x] Spawn looks 15 units ahead so walls cannot kill a fresh dragon
+- [ ] User playtest: map size, wall layout, speed across 200 units (about 33 s edge to edge), zone colors
+- [ ] Minimap: small corner map with walls, your dragon and the zone colors (needs your "go"; not built yet)
+Not done: tileset sprites (none reachable from the build sandbox).
 
 ### Phase 2: Deploy static client to Vercel
 - [ ] Push to GitHub, import in Vercel (Framework: Other, Output Directory `public`)
@@ -40,9 +49,10 @@ Done when: the public URL runs Phase 1.
 - [ ] Deploy the server (Render/Fly/Railway, region near players), URL in `public/config.js`
 Done when: two browsers on different devices play in the same room.
 
-### Phase 4: Map and walls
-- [ ] Wall rectangles in shared state; kill on touch, block bullets
-- [ ] Draw walls (render already supports them)
+### Phase 4: Map and walls (mostly done early in the Map pass)
+- [x] Wall rectangles in shared state; kill on touch
+- [ ] Walls block bullets (needs bullets, Phase 5)
+- [x] Draw walls
 Done when: dragons and bullets collide with walls.
 
 ### Phase 5: Aim + basic attack + stat pickups (test with two browser tabs)
@@ -89,4 +99,5 @@ Done when: a full match can be played start to finish.
 - Auto-reconnect to the same room
 - Client-side prediction / lag compensation
 - Map editor / multiple maps
+- Pixel tileset for floor and walls (Kenney CC0 packs from kenney.nl; download them and drop in `public/assets/`)
 - Fun twists to brainstorm for Phase 8 (arena shrinking, chain-reaction missiles)

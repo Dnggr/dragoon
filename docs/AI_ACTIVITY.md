@@ -90,3 +90,18 @@ Decisions made without asking: arrows also steer; 10 shards per level, +10% max 
 Testing done (files not in repo): node tests for sim (all earlier cases updated, plus shards, level-up heal, cap, size effects, shard/orb scatter, typed vs shard spawn), input (WASD/arrows, diagonals, cancel, reset, blur, inactive), render (squares only, eyes are the only circles, zoom out at max size), and a jsdom run of the whole client (screens, settings, keys only prevented inside the game, death, respawn, leave).
 NOT tested: real browser rendering and feel. The damage bonus is only a number on the HUD until Phase 5 adds attacks.
 Next: user playtests, then "go" for Phase 2 (deploy static client to Vercel).
+
+## 2026-11-28: Session 8 (map pass: big map, depth, icons)
+User asked: fix the map first, add depth, make it big, find free sprites and icons. Treated that prompt as the "go" (AI_RULES wants a "go" per phase) and delivered a zip of changed files only (prompt overrides the whole-project rule).
+Docs vs prompt check: no conflict with the code. Note: the checklist's current phase is still "Phase 1, awaiting playtest"; this work is a Map pass plus the early half of Phase 4 (walls exist and kill, bullets blocking waits for Phase 5).
+Created: `public/shared/map.js` (200x150, 50 walls, 5 floor zones, emblem), `public/assets/icons/{gun,rapid,shield,missile,dragon}.svg`, `public/assets/CREDITS.md`.
+Changed: `sim.js` (`createState(w, h, walls)`; spawn needs 15 units of open ground ahead), `main.js` (uses MAP; orbs and shards scale with area: 187 and 750), `render.js` (rewritten: offscreen floor, raised walls, shadows, floating orbs, embers, vignette, icons with letter fallback), `index.html` (credit line), docs.
+Assets: game-icons.net via GitHub (per-author folders, CC BY 3.0). Looked for tilesets: Kenney Hexagon pack (CC0, npm) rejected as isometric city art that clashes with the neon look; no other CC0 2D tileset was reachable from the sandbox (allowed hosts: GitHub, npm, PyPI), so floor and walls are drawn in code.
+Decisions made without asking: size 200x150; mirror-symmetric layout; pickup density kept the same as before; wall top face = collision rect exactly (the lip and shadow are decoration); dragons stay squares.
+Bug found and fixed in this session: first layout put a pillar row on the map center line, mirroring it into a touching 3x6 slab; a first spawn check (9 units ahead) still let 10% of spawns hit a wall within 2 s, now 15 units, 0 of 1500.
+Testing done (files not in repo): node tests on the real map (1500 spawns survive 2 s straight, 6000 pickups none in walls, flying through a fortress gate, dying on a wall and on the border, passing beside a pillar, step cost 0.13 ms with 937 pickups and 4 dragons); frames rendered to PNG with node-canvas and checked by eye (fortress, corner, size x2, fortress center); `main.js` smoke run with a stubbed DOM (start, 10 s of frames, death, respawn, about 4 ms per frame on CPU).
+NOT tested: a real browser (GPU speed, SVG icon loading over HTTP, devicePixelRatio above 1, touch). Feel of a 200-unit map at speed 6 (about 33 s edge to edge) and the wall layout are untested by a human.
+Known limitations: no minimap, so navigation relies on zone colors and the emblem; dragons overlapping a wall's front lip are drawn on top of it (the lip is decoration at floor level); a size x2 dragon has only 5 units of clearance between the inner pillars and the fortress ring.
+Next: user playtests; then "go" for Phase 2 (deploy) or tell me what to change (size, wall density, zone colors, minimap).
+
+Follow-up (same day): user asked to add the minimap to the checklist. Added as an unchecked item in the Map pass block (removed from parked suggestions). No code changed.
