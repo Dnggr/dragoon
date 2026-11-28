@@ -23,12 +23,12 @@ Units: 1 unit is about one body-segment width.
 | W A S D (or arrows) | Steer: the head turns toward that direction (Phase 1, built) |
 | Mouse move | Aim (crosshair cursor) and camera pan: the camera drifts 40% of the way toward the cursor (built) |
 | Left click (hold) | Basic attack, fires toward the cursor (built; bullets do not damage dragons yet) |
-| Right click | Cast the selected skill (Phase 6) |
+| Right click (hold) | Cast Missile (built early; the skill slot / cycling arrives in Phase 6) |
 | Mouse wheel or Q | Cycle selected skill (Phase 6) |
 | 1 / 2 / 3 | Choose a card when offered (Phase 7) |
 
 Browser-native: `mousemove`, `mousedown`/`mouseup`, `contextmenu` (preventDefault), `wheel`, `keydown`.
-Camera follows your head and zooms out as the dragon grows (slither-style).
+Camera follows your head and zooms out as the dragon grows (slither-style): view width = 32 x (1 + 0.8 x (bulk - 1)), capped at 96 units, where bulk = shard size x (1 + 0.03 per block beyond 5). Right click holds = cast missiles (built early, Combat pass).
 
 ## Movement and collision numbers (built in Phase 1, PROPOSED, tune in play)
 | Constant | Value |
@@ -43,7 +43,7 @@ Camera follows your head and zooms out as the dragon grows (slither-style).
 | Pickup collect range | 0.8 x dragon size |
 | Start length | 5 segments |
 | Map | 200 x 150 units (6.25x the old 80 x 60), rectangle (sketch), border kills. Data in `public/shared/map.js` |
-| Walls | rectangles `{x, y, w, h}`, kill on touch (built), block bullets (Phase 5, when bullets exist). 50 walls, 8.7% of the area, at least 5 units between walls so a size x2 dragon fits |
+| Walls | rectangles `{x, y, w, h}`. Collision box = the top face plus the front lip (`WALL_LIP` 0.7, below the face). The HEAD dies on contact (circle radius 0.6 x size); body blocks are pushed out (radius 0.45 x size, no damage); bullets and missiles die on them. 50 walls, 8.7% of the area, at least 5 units between walls so a size x2 dragon fits |
 | Spawn | random spot, at least 6 from other dragons, clear of walls, and 15 units of open ground straight ahead (about 2.5 s) |
 
 Body = chain: each block follows the one in front and is never farther than the spacing (spacing grows with size). Blocks are drawn as squares turned toward the block in front; collisions use the circles above.
@@ -60,7 +60,7 @@ Body = chain: each block follows the one in front and is never farther than the 
 | Basic bullet damage | 4 |
 | Base fire rate | 2.5 shots/s |
 | Bullet speed | 12 units/s = 0.6 units per tick. Walls are at least 3 units thick, so a per-tick wall check cannot skip one (tested: 3000 aimed shots at a 3x3 pillar, 0 leaked). Bullet radius 0.15 + body block radius 0.4 = 0.55 < 0.6, so a grazing shot could skip a block: add a swept check when damage is built. |
-| Bullet range | 40 ticks = 2 s = 24 units (PROPOSED) |
+| Bullet range | 24 units (basic), 36 units (missile, 9 units/s, 10 dmg, homing within 24 units, turn 0.1 rad/tick, 6 s cooldown). Table: `WEAPONS` in `sim.js` (PROPOSED) |
 | Fire rate | 2.5 volleys/s; each volley is one bullet per barrel (PROPOSED, matches the 2.5 shots/s target) |
 
 ## Shards (XP, built in Phase 1, PROPOSED numbers)
@@ -78,8 +78,8 @@ Square glowing cards with a letter. Random type on scatter and on the map. Each 
 |---|---|---|---|
 | 1 | Gun | +1 barrel (every dragon starts with 1). Barrel i is mounted on body block i (block 0 is the head) and every barrel fires one bullet per volley along the cursor aim, from the tip of its barrel. Built; this replaces the earlier "small fan". | 5 barrels |
 | 2 | Rapid | +10% fire rate (built) | +50% |
-| 3 | Shield | +40 shield HP. Auto-deploys, absorbs damage before body HP. No regen by default. | 120 |
-| 4 | Missile | +1 missile per cast of the Missile skill | 3 |
+| 3 | Shield | +40 shield HP. Auto-deploys, absorbs damage before body HP. No regen by default. Built as a ring + HUD value; it absorbs nothing until damage exists. | 120 |
+| 4 | Missile | Every dragon starts with 1 missile per cast; each Missile orb adds 1 (built, Combat pass). | 3 per cast |
 
 Barrels are drawn as Kenney tank-barrel sprites on the blocks (hull blocks are the tank-hull sprite tinted with the dragon's color). A dragon with fewer blocks than barrels just fires fewer bullets. Losing a barrel when its block is cut is NOT built yet (waits for the cut rule).
 

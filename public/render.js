@@ -2,21 +2,22 @@
 // Depth comes from: tinted floor pools, raised walls with a front lip and cast shadow, drop shadows
 // under dragons and orbs, two layers of drifting embers that move faster than the floor, and a vignette.
 // Dragon blocks, barrels and bullets are Kenney CC0 sprites (public/assets/sprites), tinted with the dragon's color.
-import { HEAD_SIDE, SEG_SIDE, PICKUP_SIDE, FRAG_SIDE, GUN_LEN, BULLET_R, scaleOf } from './shared/sim.js';
+import { HEAD_SIDE, SEG_SIDE, PICKUP_SIDE, FRAG_SIDE, GUN_LEN, BULLET_R, VOLLEY_TICKS, WALL_LIP, WEAPONS, scaleOf, bulkOf } from './shared/sim.js';
+import { updateFx, drawFx } from './effects.js';
 import { ZONES, EMBLEM } from './shared/map.js';
 import { drawMinimap } from './minimap.js';
 
 const VIEW_W = 32;                 // world units visible across the screen for a small dragon
-const ZOOM_PER_SIZE = 0.4;         // camera zooms out by 0.4 per +1.0 of dragon size (slither-style)
+const ZOOM_PER_SIZE = 0.8;         // view width grows by 0.8 per +1.0 of dragon "bulk" (shard size AND length, see bulkOf in sim.js)
+const MAX_VIEW = 96;               // widest view in world units, so a huge dragon does not shrink the game to dots
 const LETTER = { gun: 'G', rapid: 'R', shield: 'S', missile: 'M' };   // fallback if an icon fails to load
-const WALL_LIP = 0.7;              // visible front face of a wall, in units (looks like wall height)
 const PAN = 0.4;                   // the camera drifts this fraction of the way from your head toward the cursor
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 const mod = (v, m) => ((v % m) + m) % m;
 const hash = (n) => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };   // stable "random" 0..1
 let cam = { x: 40, y: 30 };        // last camera center (kept when the dragon is dead)
 let zoomW = VIEW_W;                // current visible width, eases toward the target
-let lastScale = 1;
+let lastBulk = 1;
 const pan = { x: 0, y: 0 };        // current camera offset toward the cursor, in world units (eases toward its target)
 const lastView = { camX: 0, camY: 0, size: 40 };   // camera of the last drawn frame, for toWorld
 
@@ -44,7 +45,10 @@ for (const name of ['gun', 'rapid', 'shield', 'missile', 'dragon']) {
 // ---- sprites (Kenney Topdown Tanks, CC0, see public/assets/CREDITS.md) ----
 // All point "up" in the image. If one fails to load, the old squares / circle are drawn instead.
 const sprites = {};
-for (const [name, file] of Object.entries({ body: 'tankBody_sand.png', gun: 'tankSand_barrel1.png', bullet: 'bulletSand1.png' })) {
+for (const [name, file] of Object.entries({
+  body: 'tankBody_sand.png', gun: 'tankSand_barrel1.png', gun2: 'tankSand_barrel2.png', gun3: 'tankSand_barrel3.png',
+  bullet: 'bulletSand1.png', missile: 'bulletSand3.png',
+})) {
   const img = new Image();
   img.onload = () => { sprites[name] = img; };
   img.src = `assets/sprites/${file}`;
@@ -189,9 +193,9 @@ export function draw(ctx, canvas, state, meId, alpha, glow, mouse) {
   const me = state.dragons[meId];
   if (me?.alive) {
     cam = pos(me.body[0]);
-    lastScale = scaleOf(me);
+    lastBulk = bulkOf(me);
   }
-  zoomW += (VIEW_W * (1 + ZOOM_PER_SIZE * (lastScale - 1)) - zoomW) * 0.1;   // bigger dragon = wider view
+  zoomW += (Math.min(MAX_VIEW, VIEW_W * (1 + ZOOM_PER_SIZE * (lastBulk - 1))) - zoomW) * 0.1;   // bigger dragon = wider view
   const size = W / zoomW;
   const viewH = H / size;
   if (me?.alive && mouse) {                                   // camera pan: look toward the cursor, ease so it does not jerk
@@ -261,6 +265,8 @@ export function draw(ctx, canvas, state, meId, alpha, glow, mouse) {
   const seen = state.walls.filter((w) => onScreen(w.x, w.y, w.w + 2, w.h + 3));
   for (const w of seen) wallShadow(ctx, sx(w.x), sy(w.y), w.w * size, w.h * size, lip);
   for (const w of seen) wallBlock(ctx, w, sx(w.x), sy(w.y), w.w * size, w.h * size, size, lip);
+  updateFx(state, alpha, now);
+  drawFx(ctx, sx, sy, size, 'under');                          // scorch marks on the walls
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -323,16 +329,6 @@ export function draw(ctx, canvas, state, meId, alpha, glow, mouse) {
     ctx.shadowBlur = 0;
     if (!pts.length) continue;
 
-    for (let i = 0; i < Math.min(d.guns, pts.length); i++) {   // barrel i sits on block i and points at the aim
-      const len = GUN_LEN * k * size, w = (len * 24) / 52;     // barrel image is 24 x 52
-      ctx.save();
-      ctx.translate(sx(pts[i].x), sy(pts[i].y));
-      ctx.rotate(d.aim + Math.PI / 2);
-      if (sprites.gun) ctx.drawImage(sprites.gun, -w / 2, -len, w, len);
-      else { ctx.fillStyle = '#c8b88c'; ctx.fillRect(-w / 2, -len, w, len); }
-      ctx.restore();
-    }
-
     const hx = sx(pts[0].x), hy = sy(pts[0].y);
     const fx = Math.cos(d.angle), fy = Math.sin(d.angle);
     for (const side of [-1, 1]) {                       // two eyes at the front of the head
@@ -343,6 +339,46 @@ export function draw(ctx, canvas, state, meId, alpha, glow, mouse) {
       ctx.fillStyle = '#000';
       ctx.beginPath(); ctx.arc(ex + fx * size * 0.04 * k, ey + fy * size * 0.04 * k, size * 0.06 * k, 0, Math.PI * 2); ctx.fill();
     }
+
+    const kick = Math.max(0, d.reload - (VOLLEY_TICKS - 3)) / 3;   // recoil for about 3 ticks after a volley
+    for (let i = 0; i < Math.min(d.guns, pts.length); i++) {   // barrel i sits on block i and points at the aim, over the eyes
+      const len = GUN_LEN * k * size;
+      const img = [sprites.gun, sprites.gun2, sprites.gun3][i % 3];
+      const w = img ? (len * img.width) / img.height : len * 0.4;
+      ctx.save();
+      ctx.translate(sx(pts[i].x), sy(pts[i].y));
+      ctx.rotate(d.aim + Math.PI / 2);
+      ctx.translate(0, kick * 0.14 * size * k);
+      if (img) ctx.drawImage(img, -w / 2, -len, w, len);
+      else { ctx.fillStyle = '#c8b88c'; ctx.fillRect(-w / 2, -len, w, len); }
+      ctx.restore();
+      ctx.fillStyle = '#2a2d36';                       // round turret cap where the barrel meets the block
+      ctx.strokeStyle = d.color;
+      ctx.lineWidth = Math.max(1.5, size * 0.05);
+      ctx.beginPath(); ctx.arc(sx(pts[i].x), sy(pts[i].y), size * 0.17 * k, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+
+    if (d.shield > 0) {                                 // shield: a pulsing ring, thicker with more shield HP
+      ctx.strokeStyle = '#6fd8ff';
+      ctx.shadowBlur = glow ? size * 0.6 : 0;
+      ctx.shadowColor = '#6fd8ff';
+      ctx.globalAlpha = 0.45 + 0.2 * Math.sin(now / 250);
+      ctx.lineWidth = size * (0.06 + 0.1 * d.shield / 120);
+      ctx.beginPath(); ctx.arc(hx, hy, size * 0.95 * k, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.shadowBlur = 0;
+    }
+
+    if (d === me && me.alive) {                         // range marker: where a basic shot dies (faint dashes + ring)
+      const r = WEAPONS.basic.range, ex = pts[0].x + Math.cos(d.aim) * r, ey = pts[0].y + Math.sin(d.aim) * r;
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([size * 0.25, size * 0.35]);
+      ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(sx(ex), sy(ey)); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(sx(ex), sy(ey), size * 0.35, 0, Math.PI * 2); ctx.stroke();
+    }
+
     ctx.fillStyle = '#fff';
     ctx.font = `${Math.max(11, size * 0.35)}px sans-serif`;
     ctx.fillText(d.name, hx, hy - size * 0.9 * k);
@@ -352,13 +388,24 @@ export function draw(ctx, canvas, state, meId, alpha, glow, mouse) {
     const x = sx(b.px + (b.x - b.px) * alpha), y = sy(b.py + (b.y - b.py) * alpha);
     if (x < -size || y < -size || x > W + size || y > H + size) continue;
     const color = state.dragons[b.owner]?.color ?? '#ffd27a';
+    const ang = Math.atan2(b.vy, b.vx) + Math.PI / 2;
+    ctx.globalAlpha = Math.min(1, b.ttl / 5);           // shots fade out over their last ticks (end of range)
+    if (b.kind === 'missile') {
+      ctx.shadowBlur = glow ? size * 0.9 : 0;
+      ctx.shadowColor = '#ff9a3c';
+      if (sprites.missile) sprite(ctx, sprites.missile, x, y, 0.4 * size, 1.4 * size, ang);
+      else { ctx.fillStyle = '#ff9a3c'; ctx.beginPath(); ctx.arc(x, y, 0.25 * size, 0, Math.PI * 2); ctx.fill(); }
+      continue;
+    }
     const img = tint('bullet', color);
     ctx.shadowBlur = glow ? size * 0.6 : 0;
     ctx.shadowColor = color;
-    if (img) sprite(ctx, img, x, y, 0.3 * size, 0.8 * size, Math.atan2(b.vy, b.vx) + Math.PI / 2);
+    if (img) sprite(ctx, img, x, y, 0.3 * size, 0.8 * size, ang);
     else { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, BULLET_R * size, 0, Math.PI * 2); ctx.fill(); }
   }
+  ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
+  drawFx(ctx, sx, sy, size, 'over');                    // sparks, flashes, smoke, explosions
 
   embers(ctx, W, H, size, camX, camY, now);
 

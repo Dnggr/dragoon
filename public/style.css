@@ -24,3 +24,11 @@ canvas { display: block; width: 100%; height: 100%; cursor: url(assets/sprites/c
 #controls { pointer-events: none; position: absolute; bottom: 12px; left: 12px; max-width: calc(100vw - 300px); margin: 0; color: var(--muted); font-size: 14px; }
 #dead { position: absolute; left: 50%; bottom: 10%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 20px 28px; background: rgba(10,12,18,0.92); border: 1px solid #2b3345; border-radius: 12px; }
 #dead p { margin: 0 0 6px; color: var(--muted); }
+#weapons { pointer-events: none; position: absolute; top: 96px; left: 12px; display: flex; flex-direction: column; gap: 6px; }
+#weapons .slot { --fill: 0%; position: relative; display: flex; align-items: center; gap: 10px; min-width: 190px; padding: 4px 10px 4px 4px; background: rgba(0,0,0,0.5); border-radius: 8px; font-variant-numeric: tabular-nums; overflow: hidden; }
+#weapons .slot::after { content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: var(--fill); background: var(--accent); }
+#weapons img { width: 34px; height: 34px; padding: 4px; border-radius: 6px; background: #c9d1e3; }   /* the icons are near-black, so they sit on a light tile */
+#weapons b { font-weight: 600; }
+#w-rapid::after { background: #ffd27a; }
+#w-shield::after { background: #6fd8ff; }
+#w-missile::after { background: #ff9a3c; }

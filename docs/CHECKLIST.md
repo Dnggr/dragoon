@@ -37,6 +37,17 @@ Done when: menu, settings, solo play, death and scatter work locally and feel li
 - [ ] User playtest: minimap size and readability
 Not done: tileset sprites for floor and walls. Kenney CC0 packs ARE reachable from the build sandbox through the GitHub mirror `shorepine/kenney` (see `public/assets/CREDITS.md`), floor and walls are still drawn in code.
 
+### Combat pass (user request, Session 10, awaiting playtest)
+- [x] Free sprites: more Kenney CC0 (barrels 2 and 3, missile, muzzle flash, explosion, burst, smoke, fire), credited in `public/assets/CREDITS.md`
+- [x] Gun UI: weapon slots under the HUD (game-icons on light tiles: barrels, fire rate, shield HP, missile count + cooldown); barrels cycle 3 sprites, sit on a round turret cap, are drawn above the eyes and kick back after a volley
+- [x] Walls solid for the whole dragon: collision box = top face + front lip (head and bullets no longer sink into the lip); head dies at radius 0.6 (corner of its square); body blocks are pushed out of walls and the border (no damage), so the tail cannot cut a corner
+- [x] Camera zoom uses shards AND length (`bulkOf`): view 32 units wide at the start, up to 96 (`MAX_VIEW`)
+- [x] "Other guns": Missile (right click, 1 to 3 homing missiles per cast, 6 s cooldown, built early from Phase 6) and Shield (+40 HP per orb, cap 120, shown as a ring + HUD). The multi-barrel Gun is checked by test (5 barrels = 5 bullets per volley)
+- [x] Ranges: basic 24 units, missile 36 units (`WEAPONS` in `sim.js`); a faint dashed line + ring shows the basic range along the aim; shots fade and fizzle at the end
+- [x] Effects (`public/effects.js`, fed by `state.events`): muzzle flash, wall hit (flash, sparks, dust, scorch mark), fizzle, missile explosion with fire/smoke trail, dragon death explosion with debris, pickup / level-up rings, sparks when a body block scrapes a wall
+- [ ] User playtest in a real browser: gun slot look, effect amount and speed, zoom curve (`ZOOM_PER_SIZE`, `BULK_PER_BLOCK`), wall feel
+- [ ] Shield absorbs damage and bullets/missiles hurt dragons (still waits for the damage + cut rule in Phase 5)
+
 ### Phase 2: Deploy static client to Vercel
 - [ ] Push to GitHub, import in Vercel (Framework: Other, Output Directory `public`)
 Done when: the public URL runs Phase 1.
@@ -52,7 +63,7 @@ Done when: two browsers on different devices play in the same room.
 
 ### Phase 4: Map and walls (mostly done early in the Map pass)
 - [x] Wall rectangles in shared state; kill on touch
-- [x] Walls block bullets (built with bullets, Phase 5; the border stops them too)
+- [x] Walls block bullets (built with bullets, Phase 5; the border stops them too); wall box now includes the front lip (Combat pass)
 - [x] Draw walls
 Done when: dragons and bullets collide with walls.
 

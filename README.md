@@ -2,7 +2,7 @@
 
 Browser multiplayer game. Slither.io camera and snake movement, but with square dragons and WASD steering. Each player is a dragon: a square head followed by a chain of square blocks. Pick any color, eat small shards to level up and grow, grab glowing orbs (gun, rapid, shield, missile), and survive on a map with walls.
 
-Status: **Phase 1 built + big map pass + first half of Phase 5** (solo practice on a 200x150 map with walls and depth, minimap, mouse aim with camera pan, hold-to-fire bullets from barrels mounted on the dragon, shards that level you up, death + scatter). Bullets do not hurt dragons yet, and multiplayer is next. See `docs/CHECKLIST.md`.
+Status: **Phase 1 built + big map pass + first half of Phase 5 + Combat pass (solid walls, missiles, shield, weapon ranges, effects, wider zoom)** (solo practice on a 200x150 map with walls and depth, minimap, mouse aim with camera pan, hold-to-fire bullets from barrels mounted on the dragon, shards that level you up, death + scatter). Bullets do not hurt dragons yet, and multiplayer is next. See `docs/CHECKLIST.md`.
 
 No login: players are guests. Name, color and settings are saved in the browser (`localStorage`).
 
@@ -42,7 +42,7 @@ npm start
 5. The multiplayer server is hosted outside Vercel (Phase 3). Set its URL in `public/config.js` (not a secret, it is public).
 
 ## Controls
-Keyboard + mouse. Works now: W A S D (or arrows) steer, the mouse aims (the camera drifts toward the cursor), hold left click to fire. Eat shards to level up and get bigger, orbs add body blocks (Gun orb = +1 barrel up to 5, Rapid orb = faster fire), touching a wall, the border or another dragon kills you and your body scatters. The minimap is in the bottom-right corner. Planned: right click casts a skill, wheel/Q cycles skills, 1/2/3 picks a card. Details in `docs/GAME_DESIGN.md`.
+Keyboard + mouse. Works now: W A S D (or arrows) steer, the mouse aims (the camera drifts toward the cursor), hold left click to fire, hold right click for homing missiles. Eat shards to level up and get bigger, orbs add body blocks (Gun = +1 barrel up to 5, Rapid = faster fire, Missile = +1 missile per cast up to 3, Shield = shield HP), touching a wall, the border or another dragon kills you and your body scatters. The minimap is in the bottom-right corner. Planned: right click casts a skill, wheel/Q cycles skills, 1/2/3 picks a card. Details in `docs/GAME_DESIGN.md`.
 
 ## Credits
-Orb icons and the floor emblem: game-icons.net by Lorc, Delapouite and John Colburn, CC BY 3.0. Dragon hull, barrel, bullet and crosshair sprites: Kenney (kenney.nl), CC0. Details in `public/assets/CREDITS.md`.
+Orb icons and the floor emblem: game-icons.net by Lorc, Delapouite and John Colburn, CC BY 3.0. Dragon hull, barrel, bullet, missile, effect and crosshair sprites: Kenney (kenney.nl), CC0. Details in `public/assets/CREDITS.md`.

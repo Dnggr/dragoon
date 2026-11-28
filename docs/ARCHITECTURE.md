@@ -34,6 +34,7 @@ dragoon/
     settings.js           <- localStorage (name, color, glow)
     input.js              <- WASD/arrows -> steering angle; mouse position + held left button (right click in Phase 6)
     render.js             <- canvas, sprite dragons, barrels, bullets, camera + zoom + cursor pan, interpolation, glow
+    effects.js            <- particles (muzzle, hits, explosions, rings, trails) fed by state.events; client only
     minimap.js            <- corner minimap (zones, walls, view box, your dragon)
     net.js                <- WebSocket client (Phase 3)
     shared/
@@ -47,6 +48,7 @@ dragoon/
 ## Responsibilities
 - `sim.js` (Phase 1 exports: createState, addDragon, spawnPickup, step, constants): movement, chain body, collisions, orbs, shards (xp, levels, size), scatter. Later: HP/damage/cut, bullets, skills, cooldowns, status effects, card offers. No DOM, no network, no timers.
 - `render.js`: reads snapshots, draws dragons (tinted hull sprites, squares as fallback), barrels on blocks, bullets, camera follows own head, pans toward the cursor and zooms out with size, slides blocks and bullets between ticks. Exports `toWorld(px, py)` (screen pixel to world, using the camera of the last frame). Never mutates state.
+- `effects.js`: `addEvents(state.events)` (called by `main.js` after every `step()`) turns sim events into particles; `updateFx` / `drawFx(layer)` run inside `draw()` (layer `under` = scorch marks, `over` = the rest). Missile trails are spawned per frame from `state.bullets`. Never touches the state.
 - `minimap.js`: `drawMinimap()` called last by `draw()`. Zones + walls are painted once into an offscreen layer; each frame adds the view box and your head. Enemies are not shown.
 - `input.js`: held WASD/arrow keys -> one steering angle (undefined = no key); cursor position; held left button (only a press on the canvas counts, so UI buttons never fire). `main.js` turns the cursor into a world `aim` angle with `toWorld()` and passes `{ angle, aim, fire }` to `step()` each tick.
 - `settings.js`: `localStorage` with defaults.
@@ -64,6 +66,10 @@ dragoon/
 - Depth rendering (`render.js`): the floor (cloud blotches + `ZONES` color pools) is painted once into an offscreen canvas at 4 px/unit and only the visible part is drawn; walls draw all shadows first, then block + front lip; orbs and dragons get offset drop shadows; embers are drawn in screen space with a parallax factor above 1; icons are rasterized once from SVG into small canvases and fall back to the letter if they fail to load. Collision is unchanged: the wall rectangle is exactly the lit top face.
 - Steering: WASD/arrows -> screen-space angle (y points down) -> `target`. The mouse only aims and fires (`aim`, `fire`).
 - Guns and bullets (built in Session 9): `d.guns` barrels (start 1, Gun orb +1, cap 5), barrel i is on `body[i]`. While `d.fire` is true and `d.reload` has run out, `step()` spawns one bullet per barrel at the barrel tip (`GUN_LEN` from the block center) flying along `d.aim` at 0.6 units/tick. `d.reload` is counted in ticks and refilled with `VOLLEY_TICKS / (1 + 0.1 * d.rapid)`. Bullets move first in a tick, die on walls (same `hitsWall` as dragons, so the border too) or when `ttl` hits 0, and carry `dmg` (not applied yet). Order in `step()`: inputs + move dragons, move bullets, deaths + scatter, then collect + fire for the survivors.
+- Walls (Combat pass): a wall's collision box is its top face plus the front lip (`WALL_LIP`). `hitsWall` is used by the head (radius `HEAD_WALL_R` 0.6 x size = death), by bullets and missiles, and by spawns. Body blocks use `pushOut` after the chain follow step: shortest push out of every wall and the border, no damage, so the chain wraps around corners instead of cutting through them.
+- Weapons (Combat pass): `WEAPONS = { basic, missile }` holds speed, range, damage, radius. Bullets carry `kind`, `r`, `ttl`, `life`, `dmg`. A missile (`kind: 'missile'`, right click, `d.cast`, cooldown `d.mcd` ticks, `d.missiles` per cast) turns toward the nearest other living dragon within 24 units. A barrel tip inside a wall emits the impact right away instead of a bullet.
+- Events: `step()` rebuilds `s.events` each tick: `muzzle`, `wall` (with surface point by bisecting the last step, `edge` for the border), `fizzle`, `boom`, `death`, `pickup`, `level`, `scrape`. The sim never reads them; the server will send them with the snapshot (Phase 3) or the client can derive them.
+- Camera zoom: target view width = `min(MAX_VIEW, VIEW_W x (1 + ZOOM_PER_SIZE x (bulkOf(d) - 1)))`, eased. `bulkOf` (sim.js) = shard size x (1 + 0.03 per block beyond the start length).
 - Camera pan: after the zoom, the camera center is `head + pan`, where `pan` eases toward `PAN (0.4) x (cursor - screen center) / pixels per unit`. `toWorld` inverts the final, clamped camera, so aim stays exact at the map edge.
 - Sprites: `tankBody_sand.png` (hull), `tankSand_barrel1.png` (barrel), `bulletSand1.png` (bullet), `crosshair_white_large.png` (cursor), all Kenney CC0. Hull and bullet are multiplied by the dragon's color into a cached canvas (`tint()` in `render.js`); the barrel stays sand colored so it reads on any color. A sprite that fails to load falls back to the old squares / a plain barrel / a circle.
 
@@ -78,13 +84,15 @@ state = {
           frags: 0, level: 0,              // shards eaten, level (10 shards each)
           body: [{ x, y, px, py, hp, max }], // body[0] is the head; px/py = one tick ago
           aim, fire, reload,               // radians toward the cursor, trigger held, ticks until the next volley (built)
-          guns: 1, rapid: 0, shield: 0,    // guns and rapid built, shield Phase 5+
+          guns: 1, rapid: 0, shield: 0,    // built: barrels, fire rate, shield HP (ring only, absorbs nothing yet)
+          cast: false, missiles: 1, mcd: 0, // built: right click held, missiles per cast, cooldown ticks
           skills: ['missile'], sel: 0, cd: { missile: 0 },   // Phase 6+
           perks: {}, status: { burn: 0, slow: 0 },           // Phase 7+
           pickups: 0, cardAt: 6, offer: null }
   },
   pickups: [{ x, y, type, color }],        // 'gun'|'rapid'|'shield'|'missile'
-  bullets: [{ x, y, px, py, vx, vy, owner, kind, ttl, dmg, target }]   // built: px/py = one tick ago, dmg stored not applied; target = Phase 6 missiles
+  bullets: [{ x, y, px, py, vx, vy, r, owner, kind, ttl, life, dmg }]   // kind 'basic' | 'missile'; px/py = one tick ago, dmg stored not applied
+  events: [{ t, x, y, ... }]               // this tick only, for effects (see Events)
 }
 ```
 Built dragons have name, color, alive, angle, target, aim, fire, reload, guns, rapid, frags, level, body. Pickup type `'frag'` is a shard; the other four types are orbs (gun and rapid have an effect, shield and missile only add a block for now).
@@ -126,6 +134,9 @@ Canvas 2D (`translate`/`rotate` for squares and sprites, `globalCompositeOperati
 | Camera pans 40% toward the cursor | User request ("mouse aim panning"); keeps your head on screen at any cursor position | CONFIRMED (0.4 PROPOSED) |
 | Barrels are sprites mounted on body blocks 0..n-1, all firing along the aim (replaces the fan) | User asked for guns attached to the player | PROPOSED |
 | Kenney CC0 sprites via the GitHub mirror `shorepine/kenney` | kenney.nl is not reachable from the build sandbox, GitHub is | PROPOSED |
+| Wall box = top face + front lip; head dies, body is pushed out | User: head must not sink into the wall, body must collide with it | PROPOSED (reading of the request, see AI_ACTIVITY Session 10) |
+| Missile + Shield orbs built early (ring only) | User: "other guns not working" | PROPOSED |
+| Effects layer is client-only, fed by `state.events` | Keeps `sim.js` pure and the server cheap | PROPOSED |
 | Minimap shows only your dragon and the view box | Walls are for hiding (sketch); matches the checklist item | PROPOSED |
 | Perks and skills as cards, built last | Core combat must be fun first | PROPOSED |
 | Shared pure `step()` | Solo and server use identical logic | PROPOSED |

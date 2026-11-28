@@ -1,9 +1,10 @@
 // Boot, screen switching and the practice game loop.
-import { createState, addDragon, spawnPickup, step, scaleOf, damageMult, MAX_GUNS, TICK_MS } from './shared/sim.js';
+import { createState, addDragon, spawnPickup, step, scaleOf, damageMult, MAX_GUNS, MAX_MISSILES, MAX_SHIELD, MISSILE_CD, TICK_MS } from './shared/sim.js';
 import { MAP } from './shared/map.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { createInput } from './input.js';
 import { draw, resize, toWorld } from './render.js';
+import { addEvents, clearFx } from './effects.js';
 
 const ME = 'me';
 // Same pickup density as the old 80 x 60 map (30 orbs and 120 shards there), scaled to the map area.
@@ -48,6 +49,7 @@ function spawnMe() {
 
 function startPractice() {
   state = createState(MAP.w, MAP.h, MAP.walls);
+  clearFx();
   show('game');
   resize(canvas);
   spawnMe();
@@ -76,11 +78,25 @@ function tick() {
   const shards = state.pickups.filter((p) => p.type === 'frag').length;
   for (let i = PRACTICE_SHARDS - shards; i > 0; i--) spawnPickup(state, 'frag');
   for (let i = PRACTICE_ORBS - (state.pickups.length - shards); i > 0; i--) spawnPickup(state);
-  step(state, { [ME]: { angle: input.angle(), aim: aimAngle(state.dragons[ME]), fire: input.firing() } });
+  step(state, { [ME]: { angle: input.angle(), aim: aimAngle(state.dragons[ME]), fire: input.firing(), cast: input.casting() } });
+  addEvents(state.events);
   if (!state.dragons[ME].alive) {
     dead = true;
     $('dead').hidden = false;
   }
+}
+
+// Weapon slots under the HUD: icon tile + value. Gun = barrels, Rapid = fire rate, Shield = HP, Missile = count + cooldown.
+function weaponBar(me) {
+  const set = (id, text, fill) => {
+    $(`w-${id}`).querySelector('b').textContent = text;
+    $(`w-${id}`).style.setProperty('--fill', `${Math.round(fill * 100)}%`);
+  };
+  set('gun', `${me.guns}/${MAX_GUNS}`, me.guns / MAX_GUNS);
+  set('rapid', `+${me.rapid * 10}%`, me.rapid / 5);
+  set('shield', `${me.shield}/${MAX_SHIELD}`, me.shield / MAX_SHIELD);
+  const ready = me.mcd <= 0;
+  set('missile', `x${me.missiles}/${MAX_MISSILES} ${ready ? 'ready' : (me.mcd * TICK_MS / 1000).toFixed(1) + 's'}`, ready ? 1 : 1 - me.mcd / MISSILE_CD);
 }
 
 function frame(now) {
@@ -91,8 +107,9 @@ function frame(now) {
   draw(ctx, canvas, state, ME, acc / TICK_MS, settings.glow, input.mouse());
   const me = state.dragons[ME];
   $('hud').textContent = me.alive
-    ? `HP ${me.body[0].hp}/${me.body[0].max}   Level ${me.level}   Shards ${me.frags}\nDamage x${damageMult(me).toFixed(2)}   Size x${scaleOf(me).toFixed(2)}   Length ${me.body.length}\nGuns ${me.guns}/${MAX_GUNS}   Fire rate +${me.rapid * 10}%`
+    ? `HP ${me.body[0].hp}/${me.body[0].max}   Level ${me.level}   Shards ${me.frags}\nDamage x${damageMult(me).toFixed(2)}   Size x${scaleOf(me).toFixed(2)}   Length ${me.body.length}`
     : 'Dead';
+  weaponBar(me);
   raf = requestAnimationFrame(frame);
 }
 

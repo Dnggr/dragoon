@@ -24,7 +24,13 @@ Changes made: none to the files. `render.js` tints the hull and bullet by multip
 | `sprites/tankSand_barrel1.png` | Topdown Tanks Remastered, `Retina/tankSand_barrel1.png` | gun barrels |
 | `sprites/bulletSand1.png` | Topdown Tanks Remastered, `Retina/bulletSand1.png` | bullets (tinted) |
 | `sprites/crosshair_white_large.png` | Shooting Gallery, `HUD/crosshair_white_large.png` | mouse cursor |
+| `sprites/tankSand_barrel2.png`, `sprites/tankSand_barrel3.png` | Topdown Tanks Remastered, `Retina/tankSand_barrel2.png`, `Retina/tankSand_barrel3.png` | gun barrels 2 and 3 (barrels cycle 1, 2, 3, 1, 2) |
+| `sprites/bulletSand3.png` | Topdown Tanks Remastered, `Retina/bulletSand3.png` | missile |
+| `sprites/fx/shotOrange.png` | Topdown Tanks Remastered, `Retina/shotOrange.png` | muzzle flash |
+| `sprites/fx/regularExplosion04.png` | Explosion Pack, `Regular explosion/regularExplosion04.png` | missile and death explosion |
+| `sprites/fx/burst.png` | Explosion Pack, `Particles/burst.png` | impact flash, level-up flash |
+| `sprites/fx/greyCloud1.png`, `sprites/fx/orangeCloud1.png` | Explosion Pack, `Particles/greyCloud1.png`, `Particles/orangeCloud1.png` | smoke and fire puffs |
 
-Other CC0 packs in the same mirror that may fit later (not used): Topdown Tanks Remastered (explosions, smoke, barrels, barricades, crates, tiles), Explosion Pack, Smoke Particles, Particle Pack, Splat Pack, Topdown Shooter, Tank Pack, Robot Pack, Monster Builder Pack, Minimap Pack, Cursor Pack, UI Pack - Sci-fi, Game Icons (`icons/Game Icons`). To fetch single files without cloning everything: `git clone --filter=blob:none --no-checkout --depth 1 https://github.com/shorepine/kenney`, then `git checkout HEAD -- "<path>"`.
+The mirror commit is the same for the new files. Other CC0 packs in the same mirror that may fit later (not used): Topdown Tanks Remastered (barricades, crates, tiles, `specialBarrel1-4`), the rest of Explosion Pack (pixel / sonic / ground explosions, frames 00-08), Smoke Particles, Particle Pack (muzzle flashes on black), Splat Pack, Topdown Shooter, Tank Pack, Robot Pack, Monster Builder Pack, Minimap Pack, Cursor Pack, UI Pack - Sci-fi, Game Icons (`icons/Game Icons`). To fetch single files without cloning everything: `git clone --filter=blob:none --no-checkout --depth 1 https://github.com/shorepine/kenney`, then `git checkout HEAD -- "<path>"`.
 
 Everything else (floor, walls, shadows, embers, minimap, glow) is drawn in code.
