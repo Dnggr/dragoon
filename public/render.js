@@ -1,19 +1,24 @@
 // Draws a state snapshot. Never changes the state. Dragons are squares (see docs/sketch.png).
 // Depth comes from: tinted floor pools, raised walls with a front lip and cast shadow, drop shadows
 // under dragons and orbs, two layers of drifting embers that move faster than the floor, and a vignette.
-import { HEAD_SIDE, SEG_SIDE, PICKUP_SIDE, FRAG_SIDE, scaleOf } from './shared/sim.js';
+// Dragon blocks, barrels and bullets are Kenney CC0 sprites (public/assets/sprites), tinted with the dragon's color.
+import { HEAD_SIDE, SEG_SIDE, PICKUP_SIDE, FRAG_SIDE, GUN_LEN, BULLET_R, scaleOf } from './shared/sim.js';
 import { ZONES, EMBLEM } from './shared/map.js';
+import { drawMinimap } from './minimap.js';
 
 const VIEW_W = 32;                 // world units visible across the screen for a small dragon
 const ZOOM_PER_SIZE = 0.4;         // camera zooms out by 0.4 per +1.0 of dragon size (slither-style)
 const LETTER = { gun: 'G', rapid: 'R', shield: 'S', missile: 'M' };   // fallback if an icon fails to load
 const WALL_LIP = 0.7;              // visible front face of a wall, in units (looks like wall height)
+const PAN = 0.4;                   // the camera drifts this fraction of the way from your head toward the cursor
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 const mod = (v, m) => ((v % m) + m) % m;
 const hash = (n) => { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); };   // stable "random" 0..1
 let cam = { x: 40, y: 30 };        // last camera center (kept when the dragon is dead)
 let zoomW = VIEW_W;                // current visible width, eases toward the target
 let lastScale = 1;
+const pan = { x: 0, y: 0 };        // current camera offset toward the cursor, in world units (eases toward its target)
+const lastView = { camX: 0, camY: 0, size: 40 };   // camera of the last drawn frame, for toWorld
 
 // ---- icons (game-icons.net, CC BY 3.0, see public/assets/CREDITS.md) ----
 // Each SVG is drawn once into a small canvas so drawing it every frame stays cheap.
@@ -34,6 +39,38 @@ for (const name of ['gun', 'rapid', 'shield', 'missile', 'dragon']) {
     icons[name] = c;
   };
   img.src = `assets/icons/${name}.svg`;       // if it fails to load, orbs keep their letter
+}
+
+// ---- sprites (Kenney Topdown Tanks, CC0, see public/assets/CREDITS.md) ----
+// All point "up" in the image. If one fails to load, the old squares / circle are drawn instead.
+const sprites = {};
+for (const [name, file] of Object.entries({ body: 'tankBody_sand.png', gun: 'tankSand_barrel1.png', bullet: 'bulletSand1.png' })) {
+  const img = new Image();
+  img.onload = () => { sprites[name] = img; };
+  img.src = `assets/sprites/${file}`;
+}
+
+// A copy of a sprite multiplied by a color (the cream hull becomes the dragon's color, dark tracks stay dark).
+// Cached per sprite + color, so it is built once per dragon.
+const tinted = new Map();
+function tint(name, color) {
+  const key = `${name}|${color}`;
+  const img = sprites[name];
+  if (!img) return null;
+  if (!tinted.has(key)) {
+    const c = document.createElement('canvas');
+    c.width = img.width;
+    c.height = img.height;
+    const g = c.getContext('2d');
+    g.drawImage(img, 0, 0);
+    g.globalCompositeOperation = 'multiply';
+    g.fillStyle = color;
+    g.fillRect(0, 0, c.width, c.height);
+    g.globalCompositeOperation = 'destination-in';   // multiply also paints the transparent corners: cut them off again
+    g.drawImage(img, 0, 0);
+    tinted.set(key, c);
+  }
+  return tinted.get(key);
 }
 
 // ---- floor: soft color pools and cloud blotches, painted once at low resolution ----
@@ -72,6 +109,20 @@ function square(ctx, x, y, side, angle, outline = true) {
   ctx.fillRect(-side / 2, -side / 2, side, side);
   if (outline) ctx.strokeRect(-side / 2, -side / 2, side, side);
   ctx.restore();
+}
+
+// An image of w x h centered at (x, y) and turned by angle (its "up" ends up pointing at angle + 90 degrees).
+function sprite(ctx, img, x, y, w, h, angle) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.drawImage(img, -w / 2, -h / 2, w, h);
+  ctx.restore();
+}
+
+// Screen pixel (CSS px, relative to the canvas) -> world position, using the camera of the last drawn frame.
+export function toWorld(px, py) {
+  return { x: lastView.camX + px / lastView.size, y: lastView.camY + py / lastView.size };
 }
 
 export function resize(canvas) {
@@ -126,7 +177,8 @@ function embers(ctx, W, H, size, camX, camY, now) {
 }
 
 // alpha = how far we are into the current tick (0..1), used to slide between ticks.
-export function draw(ctx, canvas, state, meId, alpha, glow) {
+// mouse = cursor in CSS px (or null): the camera drifts toward it while you are alive.
+export function draw(ctx, canvas, state, meId, alpha, glow, mouse) {
   const W = canvas.clientWidth, H = canvas.clientHeight;
   if (!W || !H) return;
   const dpr = canvas.width / W;
@@ -142,8 +194,15 @@ export function draw(ctx, canvas, state, meId, alpha, glow) {
   zoomW += (VIEW_W * (1 + ZOOM_PER_SIZE * (lastScale - 1)) - zoomW) * 0.1;   // bigger dragon = wider view
   const size = W / zoomW;
   const viewH = H / size;
-  const camX = clamp(cam.x - zoomW / 2, 0, Math.max(0, state.w - zoomW));
-  const camY = clamp(cam.y - viewH / 2, 0, Math.max(0, state.h - viewH));
+  if (me?.alive && mouse) {                                   // camera pan: look toward the cursor, ease so it does not jerk
+    pan.x += (((mouse.x - W / 2) / size) * PAN - pan.x) * 0.15;
+    pan.y += (((mouse.y - H / 2) / size) * PAN - pan.y) * 0.15;
+  }
+  const camX = clamp(cam.x + pan.x - zoomW / 2, 0, Math.max(0, state.w - zoomW));
+  const camY = clamp(cam.y + pan.y - viewH / 2, 0, Math.max(0, state.h - viewH));
+  lastView.camX = camX;
+  lastView.camY = camY;
+  lastView.size = size;
   const sx = (x) => (x - camX) * size;
   const sy = (y) => (y - camY) * size;
   const onScreen = (x, y, w, h) => sx(x + w) > 0 && sy(y + h) > 0 && sx(x) < W && sy(y) < H;
@@ -251,15 +310,28 @@ export function draw(ctx, canvas, state, meId, alpha, glow) {
   for (const d of Object.values(state.dragons)) {
     const k = scaleOf(d);
     const pts = d.body.map(pos);
+    const hull = tint('body', d.color);
     for (let i = pts.length - 1; i >= 0; i--) {         // tail first so the head ends up on top
       const angle = i === 0 ? d.angle : Math.atan2(pts[i - 1].y - pts[i].y, pts[i - 1].x - pts[i].x);
+      const side = (i === 0 ? HEAD_SIDE : SEG_SIDE) * k * size;
       ctx.shadowBlur = glow && i === 0 ? size * 0.7 : 0;
       ctx.shadowColor = d.color;
       ctx.fillStyle = d.color;
-      square(ctx, sx(pts[i].x), sy(pts[i].y), (i === 0 ? HEAD_SIDE : SEG_SIDE) * k * size, angle);
+      if (hull) sprite(ctx, hull, sx(pts[i].x), sy(pts[i].y), side * 76 / 72, side, angle + Math.PI / 2);   // hull image is 76 x 72
+      else square(ctx, sx(pts[i].x), sy(pts[i].y), side, angle);
     }
     ctx.shadowBlur = 0;
     if (!pts.length) continue;
+
+    for (let i = 0; i < Math.min(d.guns, pts.length); i++) {   // barrel i sits on block i and points at the aim
+      const len = GUN_LEN * k * size, w = (len * 24) / 52;     // barrel image is 24 x 52
+      ctx.save();
+      ctx.translate(sx(pts[i].x), sy(pts[i].y));
+      ctx.rotate(d.aim + Math.PI / 2);
+      if (sprites.gun) ctx.drawImage(sprites.gun, -w / 2, -len, w, len);
+      else { ctx.fillStyle = '#c8b88c'; ctx.fillRect(-w / 2, -len, w, len); }
+      ctx.restore();
+    }
 
     const hx = sx(pts[0].x), hy = sy(pts[0].y);
     const fx = Math.cos(d.angle), fy = Math.sin(d.angle);
@@ -276,6 +348,18 @@ export function draw(ctx, canvas, state, meId, alpha, glow) {
     ctx.fillText(d.name, hx, hy - size * 0.9 * k);
   }
 
+  for (const b of state.bullets) {                      // bullets draw above dragons, slid between ticks like the blocks
+    const x = sx(b.px + (b.x - b.px) * alpha), y = sy(b.py + (b.y - b.py) * alpha);
+    if (x < -size || y < -size || x > W + size || y > H + size) continue;
+    const color = state.dragons[b.owner]?.color ?? '#ffd27a';
+    const img = tint('bullet', color);
+    ctx.shadowBlur = glow ? size * 0.6 : 0;
+    ctx.shadowColor = color;
+    if (img) sprite(ctx, img, x, y, 0.3 * size, 0.8 * size, Math.atan2(b.vy, b.vx) + Math.PI / 2);
+    else { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, BULLET_R * size, 0, Math.PI * 2); ctx.fill(); }
+  }
+  ctx.shadowBlur = 0;
+
   embers(ctx, W, H, size, camX, camY, now);
 
   const vig = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.78);
@@ -283,4 +367,6 @@ export function draw(ctx, canvas, state, meId, alpha, glow) {
   vig.addColorStop(1, 'rgba(0,0,0,0.55)');
   ctx.fillStyle = vig;
   ctx.fillRect(0, 0, W, H);
+
+  drawMinimap(ctx, W, H, state, me, cam, { x: camX, y: camY, w: zoomW, h: viewH });   // last, so the vignette does not dim it
 }

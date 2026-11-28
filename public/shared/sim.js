@@ -15,6 +15,17 @@ export const PICKUP_SIDE = 0.7;
 export const FRAG_SIDE = 0.3;
 export const HEAD_R = 0.5;
 export const SEG_R = 0.4;
+// Guns: 1 barrel at the start, +1 per Gun orb (cap MAX_GUNS). Barrel i sits on body block i and every barrel
+// fires along d.aim (world radians toward the cursor). Rapid orbs raise the fire rate.
+export const GUN_LEN = 0.85;          // drawn barrel length from the block center (render.js); bullets spawn at its tip
+export const BULLET_R = 0.15;
+export const MAX_GUNS = 5;
+const BULLET_SPEED = 12 * DT;         // 12 units/s = 0.6 per tick. Walls are 3+ units thick, so a step cannot skip one.
+const BULLET_TTL = 40;                // ticks: 2 s, 24 units of range
+const BULLET_DMG = 4;                 // times damageMult(d). Stored on the bullet, not applied to dragons yet (Phase 5, next).
+const VOLLEY_TICKS = 1000 / TICK_MS / 2.5;   // base fire rate: 2.5 volleys per second
+const RAPID_STEP = 0.1;               // +10% fire rate per Rapid orb
+const MAX_RAPID = 5;                  // +50%
 const SPACING = 0.8;            // distance between block centers
 const START_LEN = 5;
 const TURN_MAX = 4.5;           // rad/s for a short dragon
@@ -78,7 +89,7 @@ export function addDragon(s, id, name, color) {
     const crowded = Object.values(s.dragons).some((o) =>
       o.alive && o.body.some((seg) => dist(x, y, seg.x, seg.y) < SAFE_SPAWN));
     if (crowded) continue;
-    s.dragons[id] = { name, color, alive: true, angle, target: angle, frags: 0, level: 0, body };
+    s.dragons[id] = { name, color, alive: true, angle, target: angle, aim: angle, fire: false, reload: 0, guns: 1, rapid: 0, frags: 0, level: 0, body };
     return s.dragons[id];
   }
 }
@@ -94,20 +105,55 @@ export function spawnPickup(s, type) {
   }
 }
 
-// inputs: { [dragonId]: { angle } }  angle = radians the dragon should turn toward (undefined = keep heading)
+// inputs: { [dragonId]: { angle, aim, fire } }
+//   angle = radians the dragon should turn toward (undefined = keep heading)
+//   aim   = world radians from the head toward the cursor (undefined = keep the last aim)
+//   fire  = true while the fire button is held (undefined = keep the last state)
 export function step(s, inputs = {}) {
   s.tick++;
   const alive = Object.values(s.dragons).filter((d) => d.alive);
   Object.entries(s.dragons).forEach(([id, d]) => {
     if (!d.alive) return;
-    const a = inputs[id]?.angle;
-    if (Number.isFinite(a)) d.target = a;   // ignores NaN, strings, undefined
+    const inp = inputs[id] || {};
+    if (Number.isFinite(inp.angle)) d.target = inp.angle;   // ignores NaN, strings, undefined
+    if (Number.isFinite(inp.aim)) d.aim = inp.aim;
+    if (typeof inp.fire === 'boolean') d.fire = inp.fire;
     moveDragon(d);
   });
+  moveBullets(s);
   // decide all deaths first so head-on hits kill both dragons
   const dead = alive.filter((d) => isDead(s, d, alive));
   for (const d of dead) scatter(s, d);
-  for (const d of alive) if (d.alive) collect(s, d);
+  for (const [id, d] of Object.entries(s.dragons)) {
+    if (!d.alive) continue;
+    collect(s, d);
+    fire(s, id, d);
+  }
+}
+
+// Bullets fly straight and die on a wall, the border, or when their time runs out.
+// px/py = position one tick ago, used by the renderer to interpolate.
+function moveBullets(s) {
+  s.bullets = s.bullets.filter((b) => {
+    b.px = b.x;
+    b.py = b.y;
+    b.x += b.vx;
+    b.y += b.vy;
+    return --b.ttl > 0 && !hitsWall(s, b.x, b.y, BULLET_R);
+  });
+}
+
+// Hold fire: one bullet per barrel, from the tip of each barrel, along the aim.
+function fire(s, id, d) {
+  d.reload = Math.max(d.reload - 1, -1);                 // floor of -1 so a long pause does not store a burst
+  if (!d.fire || d.reload > 0) return;
+  d.reload += VOLLEY_TICKS / (1 + RAPID_STEP * d.rapid);
+  const k = scaleOf(d), dmg = BULLET_DMG * damageMult(d);
+  const cos = Math.cos(d.aim), sin = Math.sin(d.aim);
+  for (const seg of d.body.slice(0, d.guns)) {           // ponytail: a dragon shorter than its gun count just fires fewer
+    const x = seg.x + cos * GUN_LEN * k, y = seg.y + sin * GUN_LEN * k;
+    s.bullets.push({ x, y, px: x, py: y, vx: cos * BULLET_SPEED, vy: sin * BULLET_SPEED, owner: id, kind: 'basic', ttl: BULLET_TTL, dmg });
+  }
 }
 
 function moveDragon(d) {
@@ -160,7 +206,10 @@ function collect(s, d) {
     const p = s.pickups[i];
     if (dist(h.x, h.y, p.x, p.y) > range) continue;
     s.pickups.splice(i, 1);
-    if (p.type === 'frag') eatShard(d); else growTail(d);
+    if (p.type === 'frag') { eatShard(d); continue; }
+    growTail(d);                                          // every orb adds a block, then its own effect
+    if (p.type === 'gun') d.guns = Math.min(MAX_GUNS, d.guns + 1);
+    if (p.type === 'rapid') d.rapid = Math.min(MAX_RAPID, d.rapid + 1);
   }
 }
 

@@ -33,8 +33,9 @@ Done when: menu, settings, solo play, death and scatter work locally and feel li
 - [x] Icons on orbs (game-icons.net, CC BY 3.0, credited in `public/assets/CREDITS.md` and on the menu); dragon-head emblem on the fortress floor
 - [x] Spawn looks 15 units ahead so walls cannot kill a fresh dragon
 - [ ] User playtest: map size, wall layout, speed across 200 units (about 33 s edge to edge), zone colors
-- [ ] Minimap: small corner map with walls, your dragon and the zone colors (needs your "go"; not built yet)
-Not done: tileset sprites (none reachable from the build sandbox).
+- [x] Minimap: bottom-right corner map with zone colors, walls, border, the visible area (white box) and your dragon (triangle). Enemies are not shown on purpose. `public/minimap.js`
+- [ ] User playtest: minimap size and readability
+Not done: tileset sprites for floor and walls. Kenney CC0 packs ARE reachable from the build sandbox through the GitHub mirror `shorepine/kenney` (see `public/assets/CREDITS.md`), floor and walls are still drawn in code.
 
 ### Phase 2: Deploy static client to Vercel
 - [ ] Push to GitHub, import in Vercel (Framework: Other, Output Directory `public`)
@@ -51,15 +52,18 @@ Done when: two browsers on different devices play in the same room.
 
 ### Phase 4: Map and walls (mostly done early in the Map pass)
 - [x] Wall rectangles in shared state; kill on touch
-- [ ] Walls block bullets (needs bullets, Phase 5)
+- [x] Walls block bullets (built with bullets, Phase 5; the border stops them too)
 - [x] Draw walls
 Done when: dragons and bullets collide with walls.
 
 ### Phase 5: Aim + basic attack + stat pickups (test with two browser tabs)
-- [ ] Mouse aim (crosshair, cursor to world angle, sent as `aim`)
-- [ ] Left click hold = basic attack toward the cursor, damage x `damageMult(d)`; bullets as circles, per-tick distance check
-- [ ] Damage segments; cut rule (rear scatters); head HP 0 = death
-- [ ] Pickups: Gun (barrels, fan), Rapid; glow rendering respects the setting
+- [x] Mouse aim (crosshair sprite as the cursor, cursor to world angle, sent as `aim`)
+- [x] Camera pans toward the cursor (user request, 40% of the way, eased)
+- [x] Left click hold = basic attack toward the cursor; bullets as sprites, per-tick wall check. `damageMult(d)` is stored on each bullet (`dmg`) but NOT applied to dragons yet
+- [x] Guns are visible barrel sprites mounted on body blocks (user request, replaces the fan: barrel i on block i, all fire along the aim)
+- [ ] Damage segments; cut rule (rear scatters); head HP 0 = death (bullets fly through dragons until this is built; needs a swept check, see GAME_DESIGN)
+- [x] Pickups: Gun (+1 barrel, cap 5), Rapid (+10% fire rate, cap +50%); glow rendering respects the setting
+- [ ] User playtest: aim feel, camera pan strength (`PAN` in `render.js`), fire rate, barrel and hull sprites
 - [ ] Shield pickup: auto-deploy, shield HP absorbs first
 Done when: a 1v1 with base kit lasts about 40 s and feels fair.
 
@@ -88,7 +92,6 @@ Done when: a full match can be played start to finish.
 ## Dev suggestions (parked, NOT approved, do not build)
 - Optional accounts/login + saved stats
 - "Hide in cover" wall tiles that hide dragons
-- Guns mounted on segments (lose a segment = lose its gun)
 - Shards drift toward the head (magnet) like slither
 - Level-up flash/sound
 - Spectator mode for dead players
@@ -99,5 +102,7 @@ Done when: a full match can be played start to finish.
 - Auto-reconnect to the same room
 - Client-side prediction / lag compensation
 - Map editor / multiple maps
-- Pixel tileset for floor and walls (Kenney CC0 packs from kenney.nl; download them and drop in `public/assets/`)
+- Pixel tileset for floor and walls (Kenney CC0 packs: kenney.nl is not reachable from the build sandbox, but the GitHub mirror `shorepine/kenney` is, see `public/assets/CREDITS.md`)
+- Losing a gun when its block is cut (barrels are mounted on blocks now; waits for the cut rule)
+- Explosion / smoke / hit sprites (Kenney Explosion Pack, Smoke Particles, Particle Pack are in the same mirror)
 - Fun twists to brainstorm for Phase 8 (arena shrinking, chain-reaction missiles)

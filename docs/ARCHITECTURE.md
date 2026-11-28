@@ -29,11 +29,12 @@ dragoon/
     CHECKLIST.md  ARCHITECTURE.md  AI_ACTIVITY.md  GAME_DESIGN.md  sketch.png
   public/                 <- deployed to Vercel
     index.html  style.css  config.js (Phase 3)
-    assets/               <- icons/*.svg (game-icons.net, CC BY 3.0) + CREDITS.md
+    assets/               <- icons/*.svg (game-icons.net, CC BY 3.0), sprites/*.png (Kenney, CC0), CREDITS.md
     main.js               <- boot, screen switching, game loop, HUD
     settings.js           <- localStorage (name, color, glow)
-    input.js              <- WASD/arrows -> steering angle (mouse aim + clicks in Phases 5/6)
-    render.js             <- canvas, square dragons, camera + zoom, interpolation, glow
+    input.js              <- WASD/arrows -> steering angle; mouse position + held left button (right click in Phase 6)
+    render.js             <- canvas, sprite dragons, barrels, bullets, camera + zoom + cursor pan, interpolation, glow
+    minimap.js            <- corner minimap (zones, walls, view box, your dragon)
     net.js                <- WebSocket client (Phase 3)
     shared/
       sim.js              <- pure step(state, inputs), constants at top
@@ -45,8 +46,9 @@ dragoon/
 
 ## Responsibilities
 - `sim.js` (Phase 1 exports: createState, addDragon, spawnPickup, step, constants): movement, chain body, collisions, orbs, shards (xp, levels, size), scatter. Later: HP/damage/cut, bullets, skills, cooldowns, status effects, card offers. No DOM, no network, no timers.
-- `render.js`: reads snapshots, draws dragons as rotated squares, camera follows own head and zooms out with size, slides blocks between ticks. Never mutates state.
-- `input.js`: held WASD/arrow keys -> one steering angle (undefined = no key). `main.js` passes it to `step()` each tick.
+- `render.js`: reads snapshots, draws dragons (tinted hull sprites, squares as fallback), barrels on blocks, bullets, camera follows own head, pans toward the cursor and zooms out with size, slides blocks and bullets between ticks. Exports `toWorld(px, py)` (screen pixel to world, using the camera of the last frame). Never mutates state.
+- `minimap.js`: `drawMinimap()` called last by `draw()`. Zones + walls are painted once into an offscreen layer; each frame adds the view box and your head. Enemies are not shown.
+- `input.js`: held WASD/arrow keys -> one steering angle (undefined = no key); cursor position; held left button (only a press on the canvas counts, so UI buttons never fire). `main.js` turns the cursor into a world `aim` angle with `toWorld()` and passes `{ angle, aim, fire }` to `step()` each tick.
 - `settings.js`: `localStorage` with defaults.
 - `server.js`: owns rooms and state, calls `step()` every tick, broadcasts snapshots.
 
@@ -60,7 +62,10 @@ dragoon/
 - Rendering: each segment keeps `px,py` (position one tick ago); the client draws `p + (cur - p) * alpha`. In multiplayer the client will interpolate between snapshots instead (Phase 3).
 - World 200x150 units (`shared/map.js`; `createState(w, h, walls)` defaults to 80x60 with no walls). Camera shows 32 units across and follows the head, clamped to the map.
 - Depth rendering (`render.js`): the floor (cloud blotches + `ZONES` color pools) is painted once into an offscreen canvas at 4 px/unit and only the visible part is drawn; walls draw all shadows first, then block + front lip; orbs and dragons get offset drop shadows; embers are drawn in screen space with a parallax factor above 1; icons are rasterized once from SVG into small canvases and fall back to the letter if they fail to load. Collision is unchanged: the wall rectangle is exactly the lit top face.
-- Steering: WASD/arrows -> screen-space angle (y points down) -> `target`. Mouse is reserved for aiming in Phase 5.
+- Steering: WASD/arrows -> screen-space angle (y points down) -> `target`. The mouse only aims and fires (`aim`, `fire`).
+- Guns and bullets (built in Session 9): `d.guns` barrels (start 1, Gun orb +1, cap 5), barrel i is on `body[i]`. While `d.fire` is true and `d.reload` has run out, `step()` spawns one bullet per barrel at the barrel tip (`GUN_LEN` from the block center) flying along `d.aim` at 0.6 units/tick. `d.reload` is counted in ticks and refilled with `VOLLEY_TICKS / (1 + 0.1 * d.rapid)`. Bullets move first in a tick, die on walls (same `hitsWall` as dragons, so the border too) or when `ttl` hits 0, and carry `dmg` (not applied yet). Order in `step()`: inputs + move dragons, move bullets, deaths + scatter, then collect + fire for the survivors.
+- Camera pan: after the zoom, the camera center is `head + pan`, where `pan` eases toward `PAN (0.4) x (cursor - screen center) / pixels per unit`. `toWorld` inverts the final, clamped camera, so aim stays exact at the map edge.
+- Sprites: `tankBody_sand.png` (hull), `tankSand_barrel1.png` (barrel), `bulletSand1.png` (bullet), `crosshair_white_large.png` (cursor), all Kenney CC0. Hull and bullet are multiplied by the dragon's color into a cached canvas (`tint()` in `render.js`); the barrel stays sand colored so it reads on any color. A sprite that fails to load falls back to the old squares / a plain barrel / a circle.
 
 ## State shape (CONFIRMED structure, PROPOSED numbers)
 ```js
@@ -72,21 +77,22 @@ state = {
           angle, target,                   // radians: current heading, wanted heading
           frags: 0, level: 0,              // shards eaten, level (10 shards each)
           body: [{ x, y, px, py, hp, max }], // body[0] is the head; px/py = one tick ago
-          guns: 1, rapid: 0, shield: 0,    // Phase 5+
+          aim, fire, reload,               // radians toward the cursor, trigger held, ticks until the next volley (built)
+          guns: 1, rapid: 0, shield: 0,    // guns and rapid built, shield Phase 5+
           skills: ['missile'], sel: 0, cd: { missile: 0 },   // Phase 6+
           perks: {}, status: { burn: 0, slow: 0 },           // Phase 7+
           pickups: 0, cardAt: 6, offer: null }
   },
   pickups: [{ x, y, type, color }],        // 'gun'|'rapid'|'shield'|'missile'
-  bullets: [{ x, y, vx, vy, owner, kind, ttl, target }]      // Phase 5+
+  bullets: [{ x, y, px, py, vx, vy, owner, kind, ttl, dmg, target }]   // built: px/py = one tick ago, dmg stored not applied; target = Phase 6 missiles
 }
 ```
-Phase 1 dragons have name, color, alive, angle, target, frags, level, body. Pickup type `'frag'` is a shard; the other four types are orbs.
+Built dragons have name, color, alive, angle, target, aim, fire, reload, guns, rapid, frags, level, body. Pickup type `'frag'` is a shard; the other four types are orbs (gun and rapid have an effect, shield and missile only add a block for now).
 
 ## Network protocol (JSON over WebSocket, PROPOSED)
 Client -> server:
 - `{t:'join', room, name, color}`
-- `{t:'input', angle, aim, fire}` about 20/s (angle = steering from WASD, aim = world-space radians toward the cursor, Phase 5)
+- `{t:'input', angle, aim, fire}` about 20/s (angle = steering from WASD, aim = world-space radians from the head toward the cursor, fire = left button held; the solo client already passes exactly this object to `step()`)
 - `{t:'cast'}` right click, `{t:'select', i}` wheel/Q, `{t:'card', i}` pick card
 Server -> client:
 - `{t:'joined', id, room}`
@@ -99,7 +105,7 @@ No client-side prediction in v1 (ponytail). Interpolation only. Input is applied
 Vercel Functions support WebSockets (GA Oct 2026), but a connection ends at the function max duration (default 5 min) and connections can land on different instances. A tick loop needs one long-lived process holding room state, so the server runs on an always-on host (Render, Fly.io or Railway). Vercel serves only the static client.
 
 ## Browser-native features used
-Canvas 2D (`translate`/`rotate` for squares), `requestAnimationFrame`, `keydown`/`keyup`/`blur`, later `mousemove`/`mousedown`/`mouseup`/`wheel`/`contextmenu`, `<input type="color">`, `localStorage`, `hidden` attribute, `shadowBlur` (glow), `WebSocket`, `URLSearchParams`, `crypto.randomUUID`, `structuredClone`.
+Canvas 2D (`translate`/`rotate` for squares and sprites, `globalCompositeOperation` multiply for tinting), CSS `cursor: url()` for the crosshair, `requestAnimationFrame`, `keydown`/`keyup`/`blur`, later `mousemove`/`mousedown`/`mouseup`/`wheel`/`contextmenu`, `<input type="color">`, `localStorage`, `hidden` attribute, `shadowBlur` (glow), `WebSocket`, `URLSearchParams`, `crypto.randomUUID`, `structuredClone`.
 
 ## Key decisions
 | Decision | Why | Status |
@@ -117,6 +123,10 @@ Canvas 2D (`translate`/`rotate` for squares), `requestAnimationFrame`, `keydown`
 | No login, guests + localStorage | Nothing worth saving yet | CONFIRMED |
 | Cut-the-body rule, HP on every part | User request | CONFIRMED |
 | Mouse aim + left/right click, desktop only | User request | CONFIRMED (details PROPOSED) |
+| Camera pans 40% toward the cursor | User request ("mouse aim panning"); keeps your head on screen at any cursor position | CONFIRMED (0.4 PROPOSED) |
+| Barrels are sprites mounted on body blocks 0..n-1, all firing along the aim (replaces the fan) | User asked for guns attached to the player | PROPOSED |
+| Kenney CC0 sprites via the GitHub mirror `shorepine/kenney` | kenney.nl is not reachable from the build sandbox, GitHub is | PROPOSED |
+| Minimap shows only your dragon and the view box | Walls are for hiding (sketch); matches the checklist item | PROPOSED |
 | Perks and skills as cards, built last | Core combat must be fun first | PROPOSED |
 | Shared pure `step()` | Solo and server use identical logic | PROPOSED |
 | No `package.json` until Phase 3 | Client has zero dependencies | PROPOSED |

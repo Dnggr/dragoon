@@ -13,4 +13,18 @@ The emblem copy in `render.js` is recolored to light violet at load time.
 | `icons/missile.svg` | Rocket | Lorc |
 | `icons/dragon.svg` | Dragon head (floor emblem) | Lorc |
 
-Everything else (floor, walls, shadows, embers, dragons) is drawn in code, no image files.
+## Sprites: Kenney (CC0)
+Author: Kenney, https://kenney.nl . License: Creative Commons Zero (public domain), https://creativecommons.org/publicdomain/zero/1.0/ . Credit is not required, it is given anyway.
+Source: kenney.nl is not reachable from the build sandbox, so the files were copied unchanged from the GitHub mirror https://github.com/shorepine/kenney (commit `3694c6879e487c108f55677be7dd2ca75b07cc3b`, its README says the whole library is CC0). The license was not re-checked on kenney.nl itself.
+Changes made: none to the files. `render.js` tints the hull and bullet by multiplying a color at load time.
+
+| File | Pack and original path in the mirror | Used for |
+|---|---|---|
+| `sprites/tankBody_sand.png` | Topdown Tanks Remastered, `Retina/tankBody_sand.png` | dragon head and body blocks (tinted) |
+| `sprites/tankSand_barrel1.png` | Topdown Tanks Remastered, `Retina/tankSand_barrel1.png` | gun barrels |
+| `sprites/bulletSand1.png` | Topdown Tanks Remastered, `Retina/bulletSand1.png` | bullets (tinted) |
+| `sprites/crosshair_white_large.png` | Shooting Gallery, `HUD/crosshair_white_large.png` | mouse cursor |
+
+Other CC0 packs in the same mirror that may fit later (not used): Topdown Tanks Remastered (explosions, smoke, barrels, barricades, crates, tiles), Explosion Pack, Smoke Particles, Particle Pack, Splat Pack, Topdown Shooter, Tank Pack, Robot Pack, Monster Builder Pack, Minimap Pack, Cursor Pack, UI Pack - Sci-fi, Game Icons (`icons/Game Icons`). To fetch single files without cloning everything: `git clone --filter=blob:none --no-checkout --depth 1 https://github.com/shorepine/kenney`, then `git checkout HEAD -- "<path>"`.
+
+Everything else (floor, walls, shadows, embers, minimap, glow) is drawn in code.

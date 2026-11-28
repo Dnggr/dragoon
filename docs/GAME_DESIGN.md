@@ -21,8 +21,8 @@ Units: 1 unit is about one body-segment width.
 | Input | Action |
 |---|---|
 | W A S D (or arrows) | Steer: the head turns toward that direction (Phase 1, built) |
-| Mouse move | Aim only, crosshair (Phase 5) |
-| Left click (hold) | Basic attack, fires toward the cursor (Phase 5) |
+| Mouse move | Aim (crosshair cursor) and camera pan: the camera drifts 40% of the way toward the cursor (built) |
+| Left click (hold) | Basic attack, fires toward the cursor (built; bullets do not damage dragons yet) |
 | Right click | Cast the selected skill (Phase 6) |
 | Mouse wheel or Q | Cycle selected skill (Phase 6) |
 | 1 / 2 / 3 | Choose a card when offered (Phase 7) |
@@ -59,7 +59,9 @@ Body = chain: each block follows the one in front and is never farther than the 
 | Segment HP | 50 |
 | Basic bullet damage | 4 |
 | Base fire rate | 2.5 shots/s |
-| Bullet speed | 12 units/s = 0.6 units per tick. Bullet radius 0.15 + segment radius 0.5 = 0.65 > 0.6, so a per-tick distance check cannot tunnel. If speed goes up, add a swept check. |
+| Bullet speed | 12 units/s = 0.6 units per tick. Walls are at least 3 units thick, so a per-tick wall check cannot skip one (tested: 3000 aimed shots at a 3x3 pillar, 0 leaked). Bullet radius 0.15 + body block radius 0.4 = 0.55 < 0.6, so a grazing shot could skip a block: add a swept check when damage is built. |
+| Bullet range | 40 ticks = 2 s = 24 units (PROPOSED) |
+| Fire rate | 2.5 volleys/s; each volley is one bullet per barrel (PROPOSED, matches the 2.5 shots/s target) |
 
 ## Shards (XP, built in Phase 1, PROPOSED numbers)
 Small glowing diamonds with no name. Eating shards levels the dragon up.
@@ -74,10 +76,12 @@ Small glowing diamonds with no name. Eating shards levels the dragon up.
 Square glowing cards with a letter. Random type on scatter and on the map. Each stacks up to a cap and lasts until death. In Phase 1 an orb only adds a body block.
 | # | Pickup | Effect | Cap |
 |---|---|---|---|
-| 1 | Gun | +1 barrel. Basic attack fires one bullet per barrel in a small fan. | 5 barrels |
-| 2 | Rapid | +10% fire rate | +50% |
+| 1 | Gun | +1 barrel (every dragon starts with 1). Barrel i is mounted on body block i (block 0 is the head) and every barrel fires one bullet per volley along the cursor aim, from the tip of its barrel. Built; this replaces the earlier "small fan". | 5 barrels |
+| 2 | Rapid | +10% fire rate (built) | +50% |
 | 3 | Shield | +40 shield HP. Auto-deploys, absorbs damage before body HP. No regen by default. | 120 |
 | 4 | Missile | +1 missile per cast of the Missile skill | 3 |
+
+Barrels are drawn as Kenney tank-barrel sprites on the blocks (hull blocks are the tank-hull sprite tinted with the dragon's color). A dragon with fewer blocks than barrels just fires fewer bullets. Losing a barrel when its block is cut is NOT built yet (waits for the cut rule).
 
 Why change the guns: with free aiming, "bullet 1" and "bullet 2" as two separate bullet types is redundant. Gun (width) vs Rapid (speed) gives a real choice.
 Length cap per dragon: TBD in play (every orb adds a block, so scatter can make long dragons fast).
@@ -114,6 +118,12 @@ Every dragon starts with Missile. More skills come from cards. Wheel/Q cycles th
 - Gunner: Gun x5 + Rapid + Heavy Rounds + Homing Rounds
 - Missile battery: Missile pickups + Salvo + Cooldown Scales
 - Tank: Shield + Shield Regen + Thick Scales + Vampiric Fangs (wins by lasting)
+
+## Aim and camera (built, PROPOSED numbers)
+- `aim` = world angle from your head to the cursor's world position. The sim stores it per dragon (`d.aim`) and fires along it; WASD steering is separate (`d.target`).
+- Camera pan: the view center sits `PAN = 0.4` of the way from the head toward the cursor, eased (`render.js`). Near the map border the camera clamps, and the aim still goes to the cursor's world position.
+- The crosshair is the OS cursor (CSS `cursor: url(...)`), not drawn on the canvas.
+- Bullets die on walls, the border, or after their range. They do not hurt dragons yet (Phase 5, next item).
 
 ## Missile and shield rules (from user)
 - Shield has its own HP, deploys automatically, absorbs damage first. CONFIRMED

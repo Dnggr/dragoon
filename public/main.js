@@ -1,9 +1,9 @@
 // Boot, screen switching and the practice game loop.
-import { createState, addDragon, spawnPickup, step, scaleOf, damageMult, TICK_MS } from './shared/sim.js';
+import { createState, addDragon, spawnPickup, step, scaleOf, damageMult, MAX_GUNS, TICK_MS } from './shared/sim.js';
 import { MAP } from './shared/map.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { createInput } from './input.js';
-import { draw, resize } from './render.js';
+import { draw, resize, toWorld } from './render.js';
 
 const ME = 'me';
 // Same pickup density as the old 80 x 60 map (30 orbs and 120 shards there), scaled to the map area.
@@ -63,11 +63,20 @@ function leave() {
   show('menu');
 }
 
+// World angle from your head to the cursor. undefined (keep the last aim) until the mouse has moved,
+// or while the cursor sits on the head, where the angle is meaningless.
+function aimAngle(me) {
+  const m = input.mouse();
+  if (!m) return undefined;
+  const w = toWorld(m.x, m.y), head = me.body[0];
+  return Math.hypot(w.x - head.x, w.y - head.y) < 0.2 ? undefined : Math.atan2(w.y - head.y, w.x - head.x);
+}
+
 function tick() {
   const shards = state.pickups.filter((p) => p.type === 'frag').length;
   for (let i = PRACTICE_SHARDS - shards; i > 0; i--) spawnPickup(state, 'frag');
   for (let i = PRACTICE_ORBS - (state.pickups.length - shards); i > 0; i--) spawnPickup(state);
-  step(state, { [ME]: { angle: input.angle() } });
+  step(state, { [ME]: { angle: input.angle(), aim: aimAngle(state.dragons[ME]), fire: input.firing() } });
   if (!state.dragons[ME].alive) {
     dead = true;
     $('dead').hidden = false;
@@ -79,10 +88,10 @@ function frame(now) {
   last = now;
   while (acc >= TICK_MS && !dead) { tick(); acc -= TICK_MS; }
   if (dead) acc = 0;
-  draw(ctx, canvas, state, ME, acc / TICK_MS, settings.glow);
+  draw(ctx, canvas, state, ME, acc / TICK_MS, settings.glow, input.mouse());
   const me = state.dragons[ME];
   $('hud').textContent = me.alive
-    ? `HP ${me.body[0].hp}/${me.body[0].max}   Level ${me.level}   Shards ${me.frags}\nDamage x${damageMult(me).toFixed(2)}   Size x${scaleOf(me).toFixed(2)}   Length ${me.body.length}`
+    ? `HP ${me.body[0].hp}/${me.body[0].max}   Level ${me.level}   Shards ${me.frags}\nDamage x${damageMult(me).toFixed(2)}   Size x${scaleOf(me).toFixed(2)}   Length ${me.body.length}\nGuns ${me.guns}/${MAX_GUNS}   Fire rate +${me.rapid * 10}%`
     : 'Dead';
   raf = requestAnimationFrame(frame);
 }
